@@ -1,5 +1,5 @@
-import { supabase } from '@/integrations/supabase/client';
 import { Node, Edge } from '@xyflow/react';
+import { workflowStore, putRecord, getRecord, deleteRecord, listRecords, newId } from '@/lib/localDb';
 
 export interface SavedWorkflow {
   id: string;
@@ -38,32 +38,24 @@ export class WorkflowService {
     edges: Edge[]
   ): Promise<{ success: boolean; error?: string; workflow?: SavedWorkflow }> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return { success: false, error: 'User not authenticated' };
-      }
-
       const strippedNodes = this.stripImageData(nodes);
+      const now = new Date().toISOString();
 
-      const { data, error } = await supabase
-        .from('user_workflows')
-        .insert({
-          user_id: user.id,
-          name,
-          workflow_data: JSON.parse(JSON.stringify({
-            nodes: strippedNodes,
-            edges
-          }))
-        })
-        .select()
-        .single();
+      const workflow: SavedWorkflow = {
+        id: newId(),
+        user_id: 'local',
+        name,
+        workflow_data: JSON.parse(JSON.stringify({
+          nodes: strippedNodes,
+          edges
+        })),
+        created_at: now,
+        updated_at: now
+      };
 
-      if (error) {
-        console.error('Error saving workflow:', error);
-        return { success: false, error: error.message };
-      }
+      await putRecord(workflowStore, workflow.id, workflow);
 
-      return { success: true, workflow: data as unknown as SavedWorkflow };
+      return { success: true, workflow };
     } catch (err) {
       console.error('Workflow save error:', err);
       return { success: false, error: 'Failed to save workflow' };
@@ -72,23 +64,9 @@ export class WorkflowService {
 
   static async listWorkflows(): Promise<{ success: boolean; error?: string; workflows?: SavedWorkflow[] }> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return { success: false, error: 'User not authenticated' };
-      }
-
-      const { data, error } = await supabase
-        .from('user_workflows')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
-
-      if (error) {
-        console.error('Error listing workflows:', error);
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, workflows: data as unknown as SavedWorkflow[] };
+      const all = await listRecords<SavedWorkflow>(workflowStore);
+      const workflows = all.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+      return { success: true, workflows };
     } catch (err) {
       console.error('Workflow list error:', err);
       return { success: false, error: 'Failed to list workflows' };
@@ -97,22 +75,11 @@ export class WorkflowService {
 
   static async loadWorkflow(workflowId: string): Promise<{ success: boolean; error?: string; workflow?: SavedWorkflow }> {
     try {
-      const { data, error } = await supabase
-        .from('user_workflows')
-        .select('*')
-        .eq('id', workflowId)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error loading workflow:', error);
-        return { success: false, error: error.message };
-      }
-
-      if (!data) {
+      const workflow = await getRecord<SavedWorkflow>(workflowStore, workflowId);
+      if (!workflow) {
         return { success: false, error: 'Workflow not found' };
       }
-
-      return { success: true, workflow: data as unknown as SavedWorkflow };
+      return { success: true, workflow };
     } catch (err) {
       console.error('Workflow load error:', err);
       return { success: false, error: 'Failed to load workflow' };
@@ -121,16 +88,7 @@ export class WorkflowService {
 
   static async deleteWorkflow(workflowId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
-        .from('user_workflows')
-        .delete()
-        .eq('id', workflowId);
-
-      if (error) {
-        console.error('Error deleting workflow:', error);
-        return { success: false, error: error.message };
-      }
-
+      await deleteRecord(workflowStore, workflowId);
       return { success: true };
     } catch (err) {
       console.error('Workflow delete error:', err);

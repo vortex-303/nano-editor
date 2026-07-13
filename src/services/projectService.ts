@@ -1,6 +1,6 @@
-import { supabase } from "@/integrations/supabase/client";
 import { Node, Edge } from '@xyflow/react';
 import { NodeData } from '@/types/nodeEditor';
+import { projectStore, putRecord, getRecord, deleteRecord, listRecords, newId } from '@/lib/localDb';
 
 export interface CloudProject {
   id: string;
@@ -28,56 +28,27 @@ export interface CreateProjectData {
 export class ProjectService {
   static async saveProject(projectData: CreateProjectData): Promise<{ success: boolean; error?: string; project?: CloudProject }> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return { success: false, error: 'User not authenticated' };
-      }
-
       // Process node data to convert blob URLs to data URLs for storage
       const processedNodeData = await this.convertBlobUrlsToDataUrls(projectData.nodeData);
-      
-      console.log('Saving project with processed data:', {
-        originalNodeData: projectData.nodeData,
-        processedNodeData,
-        nodes: projectData.nodes.length,
-        edges: projectData.edges.length
-      });
 
-      const projectPayload = {
-        user_id: user.id,
+      const now = new Date().toISOString();
+      const project: CloudProject = {
+        id: newId(),
         name: projectData.name,
         description: projectData.description,
-        project_data: {
+        projectData: {
           nodes: projectData.nodes,
           edges: projectData.edges,
           nodeData: processedNodeData
-        } as any,
-        thumbnail: projectData.thumbnail
+        },
+        thumbnail: projectData.thumbnail,
+        createdAt: now,
+        updatedAt: now
       };
 
-      const { data, error } = await supabase
-        .from('user_projects')
-        .insert(projectPayload)
-        .select()
-        .single();
+      await putRecord(projectStore, project.id, project);
 
-      if (error) {
-        console.error('Supabase error saving project:', error);
-        return { success: false, error: error.message };
-      }
-
-      return {
-        success: true,
-        project: {
-          id: data.id,
-          name: data.name,
-          description: data.description,
-          projectData: data.project_data as any,
-          thumbnail: data.thumbnail,
-          createdAt: data.created_at,
-          updatedAt: data.updated_at
-        }
-      };
+      return { success: true, project };
     } catch (error) {
       console.error('Error saving project:', error);
       return {
@@ -89,39 +60,29 @@ export class ProjectService {
 
   static async updateProject(projectId: string, projectData: Partial<CreateProjectData>): Promise<{ success: boolean; error?: string }> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return { success: false, error: 'User not authenticated' };
+      const existing = await getRecord<CloudProject>(projectStore, projectId);
+      if (!existing) {
+        return { success: false, error: 'Project not found' };
       }
 
-      const updatePayload: any = {};
-      
-      if (projectData.name) updatePayload.name = projectData.name;
-      if (projectData.description !== undefined) updatePayload.description = projectData.description;
-      if (projectData.thumbnail !== undefined) updatePayload.thumbnail = projectData.thumbnail;
-      
+      const updated: CloudProject = { ...existing, updatedAt: new Date().toISOString() };
+
+      if (projectData.name) updated.name = projectData.name;
+      if (projectData.description !== undefined) updated.description = projectData.description;
+      if (projectData.thumbnail !== undefined) updated.thumbnail = projectData.thumbnail;
+
       if (projectData.nodes || projectData.edges || projectData.nodeData) {
-        // Process node data to convert blob URLs to data URLs for storage
-        const processedNodeData = projectData.nodeData ? 
+        const processedNodeData = projectData.nodeData ?
           await this.convertBlobUrlsToDataUrls(projectData.nodeData) : {};
-          
-        updatePayload.project_data = {
+
+        updated.projectData = {
           nodes: projectData.nodes || [],
           edges: projectData.edges || [],
           nodeData: processedNodeData
-        } as any;
+        };
       }
 
-      const { error } = await supabase
-        .from('user_projects')
-        .update(updatePayload)
-        .eq('id', projectId)
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error('Supabase error updating project:', error);
-        return { success: false, error: error.message };
-      }
+      await putRecord(projectStore, projectId, updated);
 
       return { success: true };
     } catch (error) {
@@ -135,43 +96,11 @@ export class ProjectService {
 
   static async loadProject(projectId: string): Promise<{ success: boolean; error?: string; project?: CloudProject }> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return { success: false, error: 'User not authenticated' };
-      }
-
-      console.log('Loading project with ID:', projectId);
-
-      const { data, error } = await supabase
-        .from('user_projects')
-        .select('*')
-        .eq('id', projectId)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Supabase error loading project:', error);
-        return { success: false, error: error.message };
-      }
-
-      if (!data) {
+      const project = await getRecord<CloudProject>(projectStore, projectId);
+      if (!project) {
         return { success: false, error: 'Project not found' };
       }
-
-      console.log('Project loaded from database:', data);
-
-      return {
-        success: true,
-        project: {
-          id: data.id,
-          name: data.name,
-          description: data.description,
-          projectData: data.project_data as any,
-          thumbnail: data.thumbnail,
-          createdAt: data.created_at,
-          updatedAt: data.updated_at
-        }
-      };
+      return { success: true, project };
     } catch (error) {
       console.error('Error loading project:', error);
       return {
@@ -183,75 +112,29 @@ export class ProjectService {
 
   static async listProjects(limit: number = 20, offset: number = 0): Promise<{ success: boolean; error?: string; projects?: CloudProject[] }> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return { success: false, error: 'User not authenticated' };
-      }
+      const all = await listRecords<CloudProject>(projectStore);
+      const sorted = all.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      const page = sorted.slice(offset, offset + limit);
 
-      console.log('Listing projects for user:', user.id, 'limit:', limit, 'offset:', offset);
-
-      // Only load essential fields for the list view (not the full project_data)
-      const { data, error } = await supabase
-        .from('user_projects')
-        .select('id, name, description, thumbnail, created_at, updated_at')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-
-      if (error) {
-        console.error('Supabase error listing projects:', error);
-        if (error.message.includes('timeout') || error.message.includes('statement timeout')) {
-          return { success: false, error: 'Request timed out. Please try again with fewer projects or check your connection.' };
-        }
-        return { success: false, error: error.message };
-      }
-
-      console.log('Projects retrieved from database:', data?.length || 0);
-
-      const projects = data?.map(item => ({
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        // Set empty project data for list view - will be loaded separately when needed
-        projectData: { nodes: [], edges: [], nodeData: {} },
-        thumbnail: item.thumbnail,
-        createdAt: item.created_at,
-        updatedAt: item.updated_at
-      })) || [];
+      // Keep list view light: metadata only, full data is loaded on demand
+      const projects = page.map(item => ({
+        ...item,
+        projectData: { nodes: [], edges: [], nodeData: {} }
+      }));
 
       return { success: true, projects };
     } catch (error) {
       console.error('Error listing projects:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to list projects';
-      
-      if (errorMessage.includes('timeout') || errorMessage.includes('statement timeout')) {
-        return { success: false, error: 'Request timed out. Please try reducing the number of projects loaded or check your internet connection.' };
-      }
-      
       return {
         success: false,
-        error: errorMessage
+        error: error instanceof Error ? error.message : 'Failed to list projects'
       };
     }
   }
 
   static async deleteProject(projectId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return { success: false, error: 'User not authenticated' };
-      }
-
-      const { error } = await supabase
-        .from('user_projects')
-        .delete()
-        .eq('id', projectId)
-        .eq('user_id', user.id);
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
+      await deleteRecord(projectStore, projectId);
       return { success: true };
     } catch (error) {
       return {
@@ -264,8 +147,8 @@ export class ProjectService {
   // Helper method to convert blob URLs to data URLs for reliable storage
   static async convertBlobUrlsToDataUrls(nodeData: { [key: string]: NodeData }): Promise<{ [key: string]: NodeData }> {
     const processedData = { ...nodeData };
-    
-    // Compress images to reduce size and prevent timeouts
+
+    // Compress images to reduce size
     const compressDataUrl = async (dataUrl: string): Promise<string> => {
       try {
         // For very large data URLs, create a smaller version
@@ -275,12 +158,12 @@ export class ProjectService {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             const img = new Image();
-            
+
             img.onload = () => {
               // Scale down if too large
               const maxDimension = 1024;
               let { width, height } = img;
-              
+
               if (width > maxDimension || height > maxDimension) {
                 if (width > height) {
                   height = (height * maxDimension) / width;
@@ -290,21 +173,21 @@ export class ProjectService {
                   height = maxDimension;
                 }
               }
-              
+
               canvas.width = width;
               canvas.height = height;
               ctx?.drawImage(img, 0, 0, width, height);
-              
+
               // Compress to JPEG with 70% quality
               const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
               resolve(compressedDataUrl);
             };
-            
+
             img.onerror = () => {
               console.warn('Failed to load image for compression');
               resolve(dataUrl); // Return original if compression fails
             };
-            
+
             img.src = dataUrl;
           });
         }
@@ -314,7 +197,7 @@ export class ProjectService {
         return dataUrl;
       }
     };
-    
+
     for (const nodeId in processedData) {
       const data = processedData[nodeId];
       if (data) {
@@ -325,12 +208,12 @@ export class ProjectService {
               const response = await fetch(data[key]);
               const blob = await response.blob();
               let dataUrl = await this.blobToDataUrl(blob);
-              
+
               // Compress if needed
               if (dataUrl.length > 500000) {
                 dataUrl = await compressDataUrl(dataUrl);
               }
-              
+
               data[key] = dataUrl;
               console.log(`Converted and compressed blob URL for ${nodeId}.${key}`);
             } catch (error) {
@@ -347,12 +230,12 @@ export class ProjectService {
                   const response = await fetch(array[i]);
                   const blob = await response.blob();
                   let dataUrl = await this.blobToDataUrl(blob);
-                  
+
                   // Compress if needed
                   if (dataUrl.length > 500000) {
                     dataUrl = await compressDataUrl(dataUrl);
                   }
-                  
+
                   array[i] = dataUrl;
                   console.log(`Converted and compressed blob URL for ${nodeId}.${key}[${i}]`);
                 } catch (error) {
@@ -367,7 +250,7 @@ export class ProjectService {
         }
       }
     }
-    
+
     return processedData;
   }
 
@@ -385,7 +268,7 @@ export class ProjectService {
     // Create a simple text-based thumbnail representation
     const nodeCount = nodes.length;
     const nodeTypes = [...new Set(nodes.map(n => n.type))];
-    
+
     return `Nodes: ${nodeCount} | Types: ${nodeTypes.join(', ')}`;
   }
 }

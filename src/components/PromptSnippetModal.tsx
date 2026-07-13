@@ -13,7 +13,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, FileText, Loader2, Search } from 'lucide-react';
 import { PromptSnippetService, PromptSnippet } from '@/services/promptSnippetService';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface PromptSnippetModalProps {
   isOpen: boolean;
@@ -30,7 +29,6 @@ export const PromptSnippetModal: React.FC<PromptSnippetModalProps> = ({
   onLoadSnippet,
   defaultTab = 'save',
 }) => {
-  const { user } = useAuth();
   const [snippets, setSnippets] = useState<PromptSnippet[]>([]);
   const [snippetName, setSnippetName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,11 +37,11 @@ export const PromptSnippetModal: React.FC<PromptSnippetModalProps> = ({
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   useEffect(() => {
-    if (isOpen && user) {
+    if (isOpen) {
       loadSnippets();
     }
     setActiveTab(defaultTab);
-  }, [isOpen, user, defaultTab]);
+  }, [isOpen, defaultTab]);
 
   const loadSnippets = async () => {
     setLoading(true);
@@ -101,21 +99,6 @@ export const PromptSnippetModal: React.FC<PromptSnippetModalProps> = ({
     s => s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
          s.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  if (!user) {
-    return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Prompt Snippets</DialogTitle>
-          </DialogHeader>
-          <div className="text-center py-8 text-muted-foreground">
-            Please sign in to save and load prompt snippets.
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

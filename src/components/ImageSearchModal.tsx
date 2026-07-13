@@ -3,17 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Download } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-interface UnsplashImage {
-  id: string;
-  url: string;
-  thumb: string;
-  description: string;
-  photographer: string;
-  downloadUrl: string;
-}
+import { searchUnsplash, UnsplashKeyMissingError, type UnsplashImage } from '@/lib/unsplashClient';
 
 interface ImageSearchModalProps {
   isOpen: boolean;
@@ -38,37 +29,19 @@ export const ImageSearchModal: React.FC<ImageSearchModalProps> = ({
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('search-unsplash', {
-        body: { 
-          query: query.trim(),
-          page: pageNum,
-          perPage: 20
-        }
-      });
+      const data = await searchUnsplash(query.trim(), pageNum, 20);
 
-      if (error) {
-        console.error('Error searching images:', error);
-        toast({
-          title: "Search Error",
-          description: "Failed to search images. Please try again.",
-          variant: "destructive",
-        });
-        return;
+      if (append) {
+        setImages(prev => [...prev, ...data.images]);
+      } else {
+        setImages(data.images);
       }
-
-      if (data?.images) {
-        if (append) {
-          setImages(prev => [...prev, ...data.images]);
-        } else {
-          setImages(data.images);
-        }
-        setHasMore(data.images.length === 20 && pageNum < data.totalPages);
-      }
+      setHasMore(data.images.length === 20 && pageNum < data.totalPages);
     } catch (error) {
       console.error('Error searching images:', error);
       toast({
-        title: "Search Error",
-        description: "Failed to search images. Please try again.",
+        title: error instanceof UnsplashKeyMissingError ? "Unsplash key required" : "Search Error",
+        description: error instanceof Error ? error.message : "Failed to search images. Please try again.",
         variant: "destructive",
       });
     } finally {

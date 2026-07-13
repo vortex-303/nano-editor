@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { snippetStore, putRecord, getRecord, deleteRecord, listRecords, newId } from '@/lib/localDb';
 
 export interface PromptSnippet {
   id: string;
@@ -11,54 +11,39 @@ export interface PromptSnippet {
 
 export const PromptSnippetService = {
   async listSnippets(): Promise<PromptSnippet[]> {
-    const { data, error } = await supabase
-      .from('user_prompt_snippets')
-      .select('*')
-      .order('updated_at', { ascending: false });
-
-    if (error) throw error;
-    return data || [];
+    const all = await listRecords<PromptSnippet>(snippetStore);
+    return all.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   },
 
   async saveSnippet(name: string, content: string): Promise<PromptSnippet> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-
-    const { data, error } = await supabase
-      .from('user_prompt_snippets')
-      .insert({
-        user_id: user.id,
-        name: name.trim(),
-        content: content.trim(),
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    const now = new Date().toISOString();
+    const snippet: PromptSnippet = {
+      id: newId(),
+      user_id: 'local',
+      name: name.trim(),
+      content: content.trim(),
+      created_at: now,
+      updated_at: now,
+    };
+    await putRecord(snippetStore, snippet.id, snippet);
+    return snippet;
   },
 
   async updateSnippet(snippetId: string, name: string, content: string): Promise<PromptSnippet> {
-    const { data, error } = await supabase
-      .from('user_prompt_snippets')
-      .update({
-        name: name.trim(),
-        content: content.trim(),
-      })
-      .eq('id', snippetId)
-      .select()
-      .single();
+    const existing = await getRecord<PromptSnippet>(snippetStore, snippetId);
+    if (!existing) throw new Error('Snippet not found');
 
-    if (error) throw error;
-    return data;
+    const updated: PromptSnippet = {
+      ...existing,
+      name: name.trim(),
+      content: content.trim(),
+      updated_at: new Date().toISOString(),
+    };
+    await putRecord(snippetStore, snippetId, updated);
+    return updated;
   },
 
   async deleteSnippet(snippetId: string): Promise<void> {
-    const { error } = await supabase
-      .from('user_prompt_snippets')
-      .delete()
-      .eq('id', snippetId);
-
-    if (error) throw error;
+    await deleteRecord(snippetStore, snippetId);
   },
 };
