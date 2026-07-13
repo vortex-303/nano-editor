@@ -1,73 +1,29 @@
-# Welcome to your Lovable project
+# Nano Editor
 
-## Project info
+Visual node-based AI image workflow editor. **100% client-side** — no backend, no accounts, no database.
 
-**URL**: https://lovable.dev/projects/e5dea346-295d-40de-a8f4-5854ffadd89f
+- **AI generation/editing** via [fal.ai](https://fal.ai) with your own API key (BYOK): Nano Banana / Nano Banana Pro image models, ESRGAN upscaling, LLM features (campaign strategy, HTML components, URL context).
+- **Free local AI** running in your browser (Transformers.js + WebGPU): background removal (RMBG-1.4), 2x super-resolution (Swin2SR), image captioning (Florence-2), depth maps (Depth Anything V2), click-to-cut-out segmentation (SlimSAM).
+- **Persistence** in your browser: projects/workflows/snippets in IndexedDB, API keys in localStorage. ZIP export/import for portable backups.
+- Optional stock photo search with your own Unsplash Access Key.
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/e5dea346-295d-40de-a8f4-5854ffadd89f) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Run locally
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+npm install
+npm run dev   # → http://localhost:8080
 ```
 
-**Edit a file directly in GitHub**
+On first run the app asks for a fal.ai API key (create one at https://fal.ai/dashboard/keys). The key is stored only in your browser.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Build & deploy
 
-**Use GitHub Codespaces**
+```sh
+npm run build   # static output in dist/
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+The build is a plain static SPA — host it anywhere (Vercel, Cloudflare Pages, GitHub Pages, any web server). No environment variables needed.
 
-## What technologies are used for this project?
+## Stack
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/e5dea346-295d-40de-a8f4-5854ffadd89f) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Vite · React 18 · TypeScript · Tailwind + shadcn/ui · @xyflow/react (node editor) · @fal-ai/client · @huggingface/transformers · idb-keyval
