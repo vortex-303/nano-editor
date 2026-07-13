@@ -46,7 +46,7 @@ export const SaveProjectModal = ({ open, onClose, nodes, edges, nodeData }: Save
       setProgressText("Generating thumbnail...");
       const thumbnail = ProjectService.generateThumbnail(nodes);
       
-      console.log('Saving project to cloud:');
+      console.log('Saving project to browser storage:');
       console.log('- Name:', name.trim());
       console.log('- Nodes:', nodes.length, nodes);
       console.log('- Edges:', edges.length, edges);
@@ -126,7 +126,7 @@ export const SaveProjectModal = ({ open, onClose, nodes, edges, nodeData }: Save
       }
       
       setProgress(75);
-      setProgressText("Uploading to cloud...");
+      setProgressText("Saving to browser storage...");
       
       const result = await ProjectService.saveProject({
         name: name.trim(),
@@ -143,7 +143,7 @@ export const SaveProjectModal = ({ open, onClose, nodes, edges, nodeData }: Save
       if (result.success) {
         toast({
           title: "Project saved",
-          description: `"${name}" has been saved to the cloud.`
+          description: `"${name}" has been saved in this browser.`
         });
         
         // Reset form
@@ -191,10 +191,10 @@ export const SaveProjectModal = ({ open, onClose, nodes, edges, nodeData }: Save
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <Save className="w-5 h-5" />
-            <span>Save Project to Cloud</span>
+            <span>Save Project to Browser</span>
           </DialogTitle>
           <DialogDescription>
-            Save your current workflow to the cloud so you can access it from anywhere.
+            Save your current workflow in this browser (IndexedDB). Use ZIP export for portable backups.
           </DialogDescription>
         </DialogHeader>
         

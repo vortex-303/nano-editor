@@ -81,7 +81,7 @@ export const LoadProjectModal = ({ open, onClose, onLoad }: LoadProjectModalProp
     try {
       toast({
         title: "Loading project...",
-        description: "Retrieving project data from cloud storage.",
+        description: "Retrieving project data from browser storage.",
       });
       
       console.log('LoadProjectModal: Loading specific project:', project.id);
@@ -176,7 +176,7 @@ export const LoadProjectModal = ({ open, onClose, onLoad }: LoadProjectModalProp
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <FolderOpen className="w-5 h-5" />
-            <span>Load Project from Cloud</span>
+            <span>Load Project from Browser</span>
           </DialogTitle>
           <DialogDescription>
             Choose a project to load into the editor.
