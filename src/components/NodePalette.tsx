@@ -24,7 +24,10 @@ import {
   Maximize2,
   PaintBucket,
   FileOutput,
-  Layers
+  Layers,
+  ScanEye,
+  Mountain,
+  Scissors
 } from 'lucide-react';
 
 interface NodePaletteProps {
@@ -50,8 +53,11 @@ const nodeCategories = [
       { type: 'processing', label: 'AI Edit', icon: Edit3, description: 'Edit images with AI' },
       { type: 'edit', label: 'Mark', icon: Edit3, description: 'Mark areas on images' },
       { type: 'crop', label: 'Crop', icon: Crop, description: 'Crop images with custom ratios and selections' },
-      { type: 'upscale', label: 'Upscale', icon: Maximize2, description: 'AI upscaling 2x/4x with Real-ESRGAN' },
+      { type: 'upscale', label: 'Upscale', icon: Maximize2, description: 'AI upscaling — free local 2x or fal.ai 2x/4x' },
       { type: 'effects', label: 'Effects', icon: Wand2, description: 'Apply filters and effects like background removal' },
+      { type: 'describeImage', label: 'Describe Image', icon: ScanEye, description: 'Local AI caption — feeds Prompt/Context inputs (free)' },
+      { type: 'depthMap', label: 'Depth Map', icon: Mountain, description: 'Local depth estimation with Depth Anything V2 (free)' },
+      { type: 'segment', label: 'Click to Cut Out', icon: Scissors, description: 'Click an object to cut it out with SAM (free, local)' },
       { type: 'vectorize', label: 'Vectorize', icon: Sparkles, description: 'Convert images to SVG vectors' },
       { type: 'pixelate', label: 'Pixelate', icon: Grid3X3, description: 'Generate 8-bit or 16-bit pixel art' },
       { type: 'halftoneEffect', label: 'Halftone', icon: Sparkles, description: 'Apply halftone shading with dot, ordered, or dithering modes' },

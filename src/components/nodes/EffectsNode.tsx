@@ -9,12 +9,8 @@ import { Loader2, Wand2, Download } from 'lucide-react';
 import { NodeData } from '@/types/nodeEditor';
 import { toast } from 'sonner';
 import { useNodeDataContext } from '@/contexts/NodeDataContext';
-import { pipeline, env } from '@huggingface/transformers';
+import { removeBackground, superResolution2x } from '@/lib/localAi';
 import { ImagePreviewModal } from '../ImagePreviewModal';
-
-// Configure transformers.js for optimal performance
-env.allowLocalModels = false;
-env.useBrowserCache = true;
 
 interface EffectsNodeProps {
   data: NodeData;
@@ -107,60 +103,6 @@ export const EffectsNode: React.FC<EffectsNodeProps> = ({ data, id }) => {
     });
   };
 
-  // AI Background Removal using RMBG V1.4
-  const removeBackgroundRMBG = async (imageElement: HTMLImageElement): Promise<string> => {
-    setProgress('Loading RMBG V1.4 model...');
-    try {
-      const segmenter = await pipeline('image-segmentation', 'briaai/RMBG-1.4', { 
-        device: 'webgpu',
-        dtype: 'fp16'
-      });
-      
-      setProgress('Processing image...');
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Could not get canvas context');
-      
-      resizeImageIfNeeded(canvas, ctx, imageElement);
-      const imageData = canvas.toDataURL('image/jpeg', 0.8);
-      
-      setProgress('Removing background...');
-      const result = await segmenter(imageData);
-      
-      if (!result || !Array.isArray(result) || result.length === 0 || !result[0].mask) {
-        throw new Error('Invalid segmentation result from RMBG');
-      }
-      
-      return await applyMaskToImage(canvas, result[0].mask);
-    } catch (error) {
-      console.error('RMBG background removal failed:', error);
-      throw new Error('RMBG background removal failed. Try ISNet fallback.');
-    }
-  };
-
-
-  // Apply mask to create transparent background
-  const applyMaskToImage = async (canvas: HTMLCanvasElement, mask: any): Promise<string> => {
-    const outputCanvas = document.createElement('canvas');
-    outputCanvas.width = canvas.width;
-    outputCanvas.height = canvas.height;
-    const outputCtx = outputCanvas.getContext('2d');
-    if (!outputCtx) throw new Error('Could not get output canvas context');
-    
-    outputCtx.drawImage(canvas, 0, 0);
-    const outputImageData = outputCtx.getImageData(0, 0, outputCanvas.width, outputCanvas.height);
-    const data = outputImageData.data;
-    
-    for (let i = 0; i < mask.data.length; i++) {
-      // Use mask directly (1 = keep object, 0 = remove background)
-      const alpha = Math.round(mask.data[i] * 255);
-      data[i * 4 + 3] = alpha;
-    }
-    
-    outputCtx.putImageData(outputImageData, 0, 0);
-    return outputCanvas.toDataURL('image/png', 1.0);
-  };
-
   // Edge Detection using Sobel filter
   const applyEdgeDetection = async (imageElement: HTMLImageElement): Promise<string> => {
     const canvas = document.createElement('canvas');
@@ -205,78 +147,6 @@ export const EffectsNode: React.FC<EffectsNodeProps> = ({ data, id }) => {
     ctx.putImageData(outputImageData, 0, 0);
     return canvas.toDataURL('image/png', 1.0);
   };
-
-  // Super Resolution using REAL-ESRGAN with WebGPU
-  const applySuperResolution = async (imageElement: HTMLImageElement): Promise<string> => {
-    setProgress('Loading Real-ESRGAN model...');
-    try {
-      // Use a working super resolution model with WebGPU
-      const upscaler = await pipeline('image-to-image', 'caidas/swin2SR-classical-sr-x2-64', {
-        device: 'webgpu',
-        dtype: 'fp32'
-      });
-      
-      setProgress('Preparing image for upscaling...');
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Could not get canvas context');
-      
-      // Resize for processing (smaller input for faster processing)
-      const { width, height } = resizeImageIfNeeded(canvas, ctx, imageElement);
-      
-      // Convert to proper format for the model
-      const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-        }, 'image/png');
-      });
-      
-      setProgress('Upscaling with AI (2x resolution)...');
-      
-      // Process with the model
-      const result = await upscaler(blob);
-      
-      // Create output canvas with 2x dimensions
-      const outputCanvas = document.createElement('canvas');
-      outputCanvas.width = width * 2;
-      outputCanvas.height = height * 2;
-      const outputCtx = outputCanvas.getContext('2d');
-      if (!outputCtx) throw new Error('Could not get output canvas context');
-      
-      // For now, use bicubic upscaling as fallback (browser-based upscaling)
-      outputCtx.imageSmoothingEnabled = true;
-      outputCtx.imageSmoothingQuality = 'high';
-      outputCtx.drawImage(imageElement, 0, 0, outputCanvas.width, outputCanvas.height);
-      
-      toast.success('Super resolution applied (2x upscaling)');
-      return outputCanvas.toDataURL('image/png', 1.0);
-    } catch (error) {
-      console.error('Super resolution failed, using browser upscaling:', error);
-      
-      // Fallback to high-quality browser upscaling
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Could not get canvas context');
-      
-      const { width, height } = resizeImageIfNeeded(canvas, ctx, imageElement);
-      
-      // Create 2x canvas
-      const outputCanvas = document.createElement('canvas');
-      outputCanvas.width = width * 2;
-      outputCanvas.height = height * 2;
-      const outputCtx = outputCanvas.getContext('2d');
-      if (!outputCtx) throw new Error('Could not get output canvas context');
-      
-      // High-quality browser upscaling
-      outputCtx.imageSmoothingEnabled = true;
-      outputCtx.imageSmoothingQuality = 'high';
-      outputCtx.drawImage(imageElement, 0, 0, outputCanvas.width, outputCanvas.height);
-      
-      toast.success('Applied high-quality browser upscaling (2x)');
-      return outputCanvas.toDataURL('image/png', 1.0);
-    }
-  };
-
 
 
   const applyCanvasEffect = async (imageElement: HTMLImageElement, effect: EffectType, intensityValue: number): Promise<string> => {
@@ -594,7 +464,7 @@ export const EffectsNode: React.FC<EffectsNodeProps> = ({ data, id }) => {
       // Route to appropriate effect handler
       switch (selectedEffect) {
         case 'removeBackground':
-          resultUrl = await removeBackgroundRMBG(imageElement);
+          resultUrl = await removeBackground(imageUrl, setProgress);
           toast.success('Background removed with RMBG V1.4!');
           break;
         case 'edgeDetection':
@@ -603,7 +473,8 @@ export const EffectsNode: React.FC<EffectsNodeProps> = ({ data, id }) => {
           toast.success('Edge detection applied!');
           break;
         case 'superResolution':
-          resultUrl = await applySuperResolution(imageElement);
+          resultUrl = await superResolution2x(imageUrl, setProgress);
+          toast.success('Super resolution applied (2x upscaling)');
           break;
         default:
           // Basic and artistic effects (grayscale, invert, pixelation, mosaic, swirl, ripple, sketch, aging)

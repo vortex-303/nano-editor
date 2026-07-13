@@ -37,6 +37,9 @@ import HalftoneEffectNode from './nodes/HalftoneEffectNode';
 import PixelArtNode from './nodes/PixelArtNode';
 import { ConvertNode } from './nodes/ConvertNode';
 import { BatchProcessingNode } from './nodes/BatchProcessingNode';
+import { DescribeImageNode } from './nodes/DescribeImageNode';
+import { DepthMapNode } from './nodes/DepthMapNode';
+import { SegmentNode } from './nodes/SegmentNode';
 
 import { NodePalette } from './NodePalette';
 import { WorkflowToolbar } from './WorkflowToolbar';
@@ -71,6 +74,9 @@ const nodeTypes = {
   pixelArt: PixelArtNode,
   convert: ConvertNode,
   batchProcessing: BatchProcessingNode,
+  describeImage: DescribeImageNode,
+  depthMap: DepthMapNode,
+  segment: SegmentNode,
 };
 
 const initialNodes: Node[] = [];
