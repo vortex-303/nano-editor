@@ -58,17 +58,49 @@ interface GenerateImageOptions {
   images?: string[];
   tier?: string;
   aspectRatio?: string;
+  /** 'auto' (default) wraps the prompt with quality/safety templates; 'raw' sends it as-is */
+  promptMode?: 'auto' | 'raw';
 }
 
-export const generateImage = async ({ prompt, images, tier, aspectRatio }: GenerateImageOptions): Promise<string> => {
+const enhancePrompt = (prompt: string, imageCount: number): string => {
+  if (imageCount > 0) {
+    return `You are an expert photo editor AI. Your task is to work with the provided ${imageCount > 1 ? `${imageCount} images` : 'image'} based on the user's request.
+User Request: "${prompt}"
+
+${imageCount > 1 ? 'Multi-Image Processing Guidelines:' : 'Editing Guidelines:'}
+${imageCount > 1
+  ? `- You can combine, merge, or edit multiple images as requested.
+- When combining images, ensure seamless integration and natural composition.
+- Maintain the best quality from all source images.`
+  : `- The edit must be realistic and blend seamlessly with the surrounding area.
+- Maintain the overall composition and quality of the original image.`}
+
+Safety & Ethics Policy:
+- You MUST fulfill requests to adjust lighting, colors, or basic photo enhancements.
+- You MUST REFUSE any request to change a person's fundamental characteristics inappropriately.
+
+Output: Return ONLY the final ${imageCount > 1 ? 'processed' : 'edited'} image. Do not return text.`;
+  }
+  return `You are an expert image generation AI. Create a high-quality image based on the user's request.
+User Request: "${prompt}"
+
+Guidelines:
+- Create a photorealistic, high-quality image.
+- Ensure the image is appropriate and follows safety guidelines.
+
+Output: Return ONLY the generated image. Do not return text.`;
+};
+
+export const generateImage = async ({ prompt, images, tier, aspectRatio, promptMode = 'auto' }: GenerateImageOptions): Promise<string> => {
   ensureConfigured();
   const tierId: ImageTier = tier === 'draft' || tier === 'standard' || tier === 'ultra' ? tier : 'standard';
   const hasImages = !!images?.length;
   const endpoint = hasImages ? TIER_ENDPOINTS[tierId].edit : TIER_ENDPOINTS[tierId].generate;
+  const finalPrompt = promptMode === 'raw' ? prompt : enhancePrompt(prompt, images?.length ?? 0);
   try {
     const result = await fal.subscribe(endpoint, {
       input: {
-        prompt,
+        prompt: finalPrompt,
         num_images: 1,
         output_format: 'png',
         ...(hasImages ? { image_urls: images } : {}),

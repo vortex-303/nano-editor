@@ -12,23 +12,23 @@ export const IMAGE_MODEL_TIERS: ImageModelTier[] = [
   {
     id: 'draft',
     label: 'Draft',
-    model: 'google/gemini-2.5-flash-image',
+    model: 'fal-ai/nano-banana',
     cost: '$',
-    description: 'Fastest and cheapest. Good for quick drafts and iterations.',
+    description: 'Fastest and cheapest (Nano Banana / Gemini Flash Image). Good for quick drafts and iterations.',
   },
   {
     id: 'standard',
     label: 'Standard',
-    model: 'google/gemini-3.1-flash-image-preview',
+    model: 'fal-ai/nano-banana-pro',
     cost: '$$',
-    description: 'High quality with fast rendering. Best balance of cost and quality.',
+    description: 'High quality (Nano Banana Pro / Gemini 3 Pro Image). Best balance of cost and quality.',
   },
   {
     id: 'ultra',
     label: 'Ultra',
-    model: 'google/gemini-3-pro-image-preview',
+    model: 'fal-ai/nano-banana-pro',
     cost: '$$$',
-    description: 'Highest quality, slower and most expensive. Best for hero shots and text-in-image.',
+    description: 'Highest quality (Nano Banana Pro). Best for hero shots and text-in-image.',
   },
 ];
 

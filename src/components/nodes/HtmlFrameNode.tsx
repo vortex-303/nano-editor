@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast';
 import { Code, Play, Download, Loader2, Globe, RotateCcw, Maximize2, ZoomIn, ZoomOut, Image } from 'lucide-react';
 import { useNodeDataContext } from '@/contexts/NodeDataContext';
-import { supabase } from '@/integrations/supabase/client';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { generateHtmlComponent as generateHtmlComponentViaFal } from '@/lib/htmlComponent';
 
 interface HtmlFrameNodeProps {
   data: any;
@@ -26,6 +27,7 @@ interface GeneratedCode {
 
 export const HtmlFrameNode: React.FC<HtmlFrameNodeProps> = ({ data, id }) => {
   const { updateNodeData, getConnectedNodeData } = useNodeDataContext();
+  const { ensureKey } = useOnboarding();
   const { toast } = useToast();
   const [prompt, setPrompt] = useState(data.prompt || '');
   const [url, setUrl] = useState(data.url || '');
@@ -185,29 +187,23 @@ export const HtmlFrameNode: React.FC<HtmlFrameNodeProps> = ({ data, id }) => {
       return;
     }
 
+    if (!(await ensureKey())) {
+      return;
+    }
+
     setIsGenerating(true);
     try {
-      const { data: result, error } = await supabase.functions.invoke('generate-html-component', {
-        body: { 
-          prompt: prompt.trim(),
-          images: connectedImages,
-          code: connectedCode,
-          connectedData: getConnectedNodeData(id, [], 'input') // Get any connected input data
-        }
+      const code = await generateHtmlComponentViaFal({
+        prompt: prompt.trim(),
+        connectedData: getConnectedNodeData(id, [], 'input') // Get any connected input data
       });
 
-      if (error) throw error;
-
-      if (result.success && result.code) {
-        setGeneratedCode(result.code);
-        setActiveTab('preview');
-        toast({
-          title: "Component generated!",
-          description: "Your HTML component is ready to preview",
-        });
-      } else {
-        throw new Error(result.error || 'Failed to generate component');
-      }
+      setGeneratedCode(code);
+      setActiveTab('preview');
+      toast({
+        title: "Component generated!",
+        description: "Your HTML component is ready to preview",
+      });
     } catch (error) {
       console.error('Error generating HTML component:', error);
       toast({

@@ -7,10 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Copy, Play, AlertCircle } from 'lucide-react';
 import { NodeData } from '@/types/nodeEditor';
 import { useNodeDataContext } from '@/contexts/NodeDataContext';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
-import { CreditService } from '@/services/creditService';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { generateImage } from '@/lib/falClient';
 import { ImagePreviewModal } from '../ImagePreviewModal';
 import { ModelTierSelector } from '../ModelTierSelector';
 import { DEFAULT_TIER_ID } from '@/lib/imageModelTiers';
@@ -33,7 +32,7 @@ export const VariationNode: React.FC<VariationNodeProps> = ({ data, id }) => {
   
   const { getEdges } = useReactFlow();
   const { updateNodeData, getConnectedNodeData, getAllConnectedNodeData } = useNodeDataContext();
-  const { user, deductCredit } = useAuth();
+  const { ensureKey } = useOnboarding();
 
   // Get connected data
   const edges = getEdges();
@@ -85,35 +84,20 @@ export const VariationNode: React.FC<VariationNodeProps> = ({ data, id }) => {
     const count = Math.min(Math.max(parseInt(variationCount), 2), 6);
     setProgress({ current: 0, total: count });
 
+    if (!(await ensureKey())) {
+      setProcessing(false);
+      return;
+    }
+
     try {
       const newResults: string[] = [];
-      
+
       console.log(`Starting generation of ${count} variants`);
 
-      // Check authentication and credit deduction for each variant
-      if (!user) {
-        toast.error('Please sign up to generate images.');
-        setProcessing(false);
-        return;
-      }
-
-      // Check if user has enough credits
-      for (let i = 0; i < count; i++) {
-        const canDeduct = await deductCredit();
-        if (!canDeduct) {
-          toast.error(`Insufficient credits. Could only generate ${i} of ${count} variations.`);
-          if (i === 0) {
-            setProcessing(false);
-            return;
-          }
-          break;
-        }
-      }
-      
       for (let i = 0; i < count; i++) {
         console.log(`Generating variant ${i + 1} of ${count}`);
         setProgress({ current: i, total: count });
-        
+
         // Create variation prompts to encourage diversity based on the input image
         const variationPrompts = [
           `${prompt}`,
@@ -123,55 +107,19 @@ export const VariationNode: React.FC<VariationNodeProps> = ({ data, id }) => {
           `Modified version: ${prompt}`,
           `Alternative take: ${prompt}`
         ];
-        
+
         const variantPrompt = variationPrompts[i % variationPrompts.length];
-        
-        // Get the first connected image URL - it's already a string, not an object
-        const imageUrl = connectedImages[0];
-        
-        if (!imageUrl || typeof imageUrl !== 'string') {
-          console.error('No valid image URL found in connected images:', connectedImages);
-          toast.error(`No valid image found for variant ${i + 1}`);
-          continue;
-        }
 
-        // Parse base64 data URL to extract the actual data and MIME type
-        let imageData, mimeType;
-        if (imageUrl.startsWith('data:')) {
-          // It's a base64 data URL
-          const [header, data] = imageUrl.split(',');
-          mimeType = header.split(':')[1].split(';')[0];
-          imageData = data;
-        } else {
-          // It's a regular URL - we'll let the edge function handle the fetching
-          mimeType = 'image/jpeg'; // default
-          imageData = null;
-        }
-        
-        const requestBody = {
-          prompt: variantPrompt,
-          modelTier,
-          images: imageData ? [{
-            data: imageData,
-            type: mimeType
-          }] : [imageUrl] // Send URL if not base64
-        };
-
-        const { data: result, error: apiError } = await supabase.functions.invoke('generate-image', {
-          body: requestBody
-        });
-
-        if (apiError) {
-          console.error(`Error generating variant ${i + 1}:`, apiError);
-          toast.error(`Failed to generate variant ${i + 1}`);
-          continue;
-        }
-
-        if (result?.success && result?.imageUrl) {
-          newResults.push(result.imageUrl);
+        try {
+          const resultUrl = await generateImage({
+            prompt: variantPrompt,
+            images: [imageUrl],
+            tier: modelTier,
+          });
+          newResults.push(resultUrl);
           console.log(`Successfully generated variant ${i + 1}, total results: ${newResults.length}`);
-        } else {
-          console.error(`No image URL in result for variant ${i + 1}:`, result);
+        } catch (variantError) {
+          console.error(`Error generating variant ${i + 1}:`, variantError);
           toast.error(`Failed to generate variant ${i + 1}`);
         }
       }

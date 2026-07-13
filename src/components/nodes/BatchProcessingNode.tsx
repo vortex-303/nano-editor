@@ -11,9 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNodeDataContext } from '@/contexts/NodeDataContext';
 import { NodeData } from '@/types/nodeEditor';
-import { useAuth } from '@/contexts/AuthContext';
-import { CreditService } from '@/services/creditService';
-import { supabase } from '@/integrations/supabase/client';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { generateImage } from '@/lib/falClient';
 import { toast } from 'sonner';
 import JSZip from 'jszip';
 import { ImagePreviewModal } from '@/components/ImagePreviewModal';
@@ -56,7 +55,7 @@ export function BatchProcessingNode({ id, data }: BatchProcessingNodeProps) {
   
   const { updateNodeData, getConnectedNodeData } = useNodeDataContext();
   const { getEdges } = useReactFlow();
-  const { user } = useAuth();
+  const { ensureKey } = useOnboarding();
 
   // Get input images and connected data from nodes
   useEffect(() => {
@@ -163,24 +162,15 @@ export function BatchProcessingNode({ id, data }: BatchProcessingNodeProps) {
       processedImageUrl = await convertSvgToPng(imageUrl);
     }
 
-    const { data: functionData, error: functionError } = await supabase.functions.invoke('generate-image', {
-      body: {
-        prompt: fullPrompt,
-        strength: editStrength,
-        modelTier,
-        images: [{ url: processedImageUrl, type: 'image/png' }]
-      }
+    if (editStrength < 1) {
+      fullPrompt += ` Apply the edit at roughly ${Math.round(editStrength * 100)}% intensity, keeping the rest of the image close to the original.`;
+    }
+
+    return await generateImage({
+      prompt: fullPrompt,
+      images: [processedImageUrl],
+      tier: modelTier,
     });
-
-    if (functionError) {
-      throw new Error(functionError.message || 'Processing failed');
-    }
-
-    if (!functionData?.imageUrl) {
-      throw new Error('No image returned');
-    }
-
-    return functionData.imageUrl;
   };
 
   const handleStart = async () => {
@@ -195,16 +185,7 @@ export function BatchProcessingNode({ id, data }: BatchProcessingNodeProps) {
       return;
     }
 
-    if (!user) {
-      toast.error('Please sign in to use AI features');
-      return;
-    }
-
-    // Check credits
-    const { canGenerate, reason } = await CreditService.canUserGenerate(user.id);
-    
-    if (!canGenerate) {
-      toast.error(reason || 'Cannot generate: insufficient credits');
+    if (!(await ensureKey())) {
       return;
     }
 
@@ -237,12 +218,6 @@ export function BatchProcessingNode({ id, data }: BatchProcessingNodeProps) {
       ));
 
       try {
-        // Check credit before each image
-        const { canGenerate } = await CreditService.canUserGenerate(user.id);
-        if (!canGenerate) {
-          throw new Error('Insufficient credits');
-        }
-        
         const resultUrl = await processImage(inputImages[i], i);
         outputUrls.push(resultUrl);
         

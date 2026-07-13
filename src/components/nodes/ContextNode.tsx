@@ -9,10 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Globe, Plus, Loader2, AlertCircle, Download } from 'lucide-react';
 import { NodeData } from '@/types/nodeEditor';
 import { useNodeDataContext } from '@/contexts/NodeDataContext';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useToast } from '@/components/ui/use-toast';
-import { CreditService } from '@/services/creditService';
+import { fetchUrlContext } from '@/lib/urlContext';
 
 interface ContextNodeProps {
   data: NodeData;
@@ -33,7 +32,7 @@ export const ContextNode: React.FC<ContextNodeProps> = ({ data, id }) => {
   const [fetchingUrl, setFetchingUrl] = useState(false);
   const [error, setError] = useState('');
   const { updateNodeData } = useNodeDataContext();
-  const { user, deductCredit } = useAuth();
+  const { ensureKey } = useOnboarding();
   const { toast } = useToast();
 
   // Update node data when contexts change
@@ -71,44 +70,15 @@ export const ContextNode: React.FC<ContextNodeProps> = ({ data, id }) => {
     setError('');
     
     try {
-      // Check authentication and credits
-      if (!user) {
-        toast({
-          title: "Authentication Required",
-          description: "Please sign up to generate images.",
-          variant: "destructive",
-        });
+      if (!(await ensureKey())) {
         return;
       }
 
-      const success = await deductCredit();
-      if (!success) {
-        toast({
-          title: "Insufficient Credits",
-          description: "Please upgrade your plan to continue generating.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const { data: responseData, error: fetchError } = await supabase.functions.invoke(
-        'fetch-url-context',
-        {
-          body: { url: urlInput.trim() }
-        }
-      );
-
-      if (fetchError) {
-        throw new Error(fetchError.message);
-      }
-
-      if (!responseData.success) {
-        throw new Error(responseData.error || 'Failed to fetch URL content');
-      }
+      const { context } = await fetchUrlContext(urlInput.trim());
 
       const newContext: ContextItem = {
         type: 'url',
-        content: responseData.context,
+        content: context,
         url: urlInput.trim(),
         timestamp: Date.now()
       };

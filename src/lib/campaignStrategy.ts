@@ -88,3 +88,48 @@ Return the hooks as JSON.`;
   });
   return result.hooks;
 };
+
+interface SocialPostPromptParams {
+  hook: CampaignHook;
+  platform: string;
+  postType: string;
+  width: number;
+  height: number;
+  hasReferenceImages: boolean;
+  extraContext?: string;
+}
+
+export const buildSocialPostPrompt = ({ hook, platform, postType, width, height, hasReferenceImages, extraContext }: SocialPostPromptParams): string => {
+  const negativeSpaceMap: Record<string, string> = {
+    left: 'left side',
+    right: 'right side',
+    top: 'top portion',
+    bottom: 'bottom portion',
+  };
+  const spacePosition = negativeSpaceMap[hook.negativeSpacePosition] || 'appropriate area';
+  const mood = hook.targetMood || 'professional';
+
+  return `Create a professional social media advertising graphic with integrated text.
+
+Visual Concept: ${hook.visualConcept}
+
+TEXT TO INCLUDE IN THE IMAGE:
+${hook.headline ? `- HEADLINE (prominent, large): "${hook.headline}"` : ''}
+${hook.bodyCopy ? `- BODY TEXT (smaller, supporting): "${hook.bodyCopy}"` : ''}
+${hook.cta ? `- CALL TO ACTION (button or highlighted text): "${hook.cta}"` : ''}
+
+Design Requirements:
+- Place the text on the ${spacePosition} of the image
+- Use modern, clean typography that matches the ${mood} mood
+- Ensure high contrast between text and background for readability
+- Text should be integrated beautifully into the composition
+- Professional graphic design quality, like a real advertising agency would produce
+- Cinematic lighting with professional color grading for the visual elements
+- Optimized for ${platform} ${postType} at ${width}x${height} dimensions
+
+${hasReferenceImages ? 'Reference Image Instructions: Use the provided reference image(s) as inspiration for style, subject, or composition while following the visual concept above.' : ''}
+
+${extraContext ? `Additional context: ${extraContext}` : ''}
+
+Output: Return ONLY the final social media graphic with all text elements integrated into the design.`;
+};

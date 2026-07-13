@@ -10,11 +10,11 @@ import { Handle, Position, useReactFlow } from '@xyflow/react';
 import { NodeData } from '@/types/nodeEditor';
 import { useNodeDataContext } from '@/contexts/NodeDataContext';
 import { ImagePreviewModal } from '@/components/ImagePreviewModal';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Share, Image, Loader2, Sparkles, ChevronRight, Check, X } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { CreditService } from '@/services/creditService';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { generateImage } from '@/lib/falClient';
+import { generateCampaignHooks, buildSocialPostPrompt } from '@/lib/campaignStrategy';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ModelTierSelector } from '@/components/ModelTierSelector';
 import { DEFAULT_TIER_ID } from '@/lib/imageModelTiers';
@@ -81,7 +81,7 @@ export const SocialMediaPostNode: React.FC<SocialMediaPostNodeProps> = ({ data, 
 
   const { getEdges } = useReactFlow();
   const { updateNodeData, getConnectedNodeData, addImageInputNode, getNodeData } = useNodeDataContext();
-  const { user, deductCredit } = useAuth();
+  const { ensureKey } = useOnboarding();
 
   const edges = getEdges();
   
@@ -150,21 +150,12 @@ export const SocialMediaPostNode: React.FC<SocialMediaPostNodeProps> = ({ data, 
     setGeneratedPosts([]);
 
     try {
-      if (!user) {
-        toast.error('Please sign in to generate content.');
+      if (!(await ensureKey())) {
         setGenerationPhase('idle');
         return;
       }
 
-      // Check credits first
-      const creditCheckResult = await CreditService.canUserGenerate(user.id);
-      if (!creditCheckResult.canGenerate) {
-        toast.error(`Insufficient credits: ${creditCheckResult.reason}`);
-        setGenerationPhase('idle');
-        return;
-      }
-
-      const promptText = connectedPrompt?.prompt ? 
+      const promptText = connectedPrompt?.prompt ?
         (typeof connectedPrompt.prompt === 'string' ? connectedPrompt.prompt : 
          Array.isArray(connectedPrompt.prompt) ? connectedPrompt.prompt.join(' ') : '') : '';
       
@@ -174,29 +165,19 @@ export const SocialMediaPostNode: React.FC<SocialMediaPostNodeProps> = ({ data, 
 
       toast.info('Generating campaign strategy...');
 
-      const { data: result, error: supabaseError } = await supabase.functions.invoke('generate-campaign-strategy', {
-        body: {
-          campaign: promptText || campaign,
-          targetAudience: targetAudience || undefined,
-          platform,
-          postType,
-          dimensions: { width: currentSize.width, height: currentSize.height },
-          ideaCount: ideaCount[0],
-          context: contextText || undefined,
-          referenceImages: connectedImages.length > 0 ? connectedImages : undefined
-        }
+      const hooks = await generateCampaignHooks({
+        campaign: promptText || campaign,
+        targetAudience: targetAudience || undefined,
+        platform,
+        postType,
+        dimensions: { width: currentSize.width, height: currentSize.height },
+        ideaCount: ideaCount[0],
+        context: contextText || undefined,
+        referenceImages: connectedImages.length > 0 ? connectedImages : undefined
       });
 
-      if (supabaseError) {
-        throw new Error(supabaseError.message);
-      }
-
-      if (!result?.success || !result?.hooks?.length) {
-        throw new Error(result?.error || 'Failed to generate campaign strategy');
-      }
-
       // Mark all hooks as selected by default
-      const hooksWithSelection = result.hooks.map((hook: CampaignHook) => ({
+      const hooksWithSelection = hooks.map((hook) => ({
         ...hook,
         selected: true
       }));
@@ -232,23 +213,9 @@ export const SocialMediaPostNode: React.FC<SocialMediaPostNodeProps> = ({ data, 
     setGeneratedPosts([]);
 
     try {
-      if (!user) {
-        toast.error('Please sign in to generate images.');
+      if (!(await ensureKey())) {
         setGenerationPhase('complete');
         return;
-      }
-
-      // Check and deduct credits for each image
-      for (let i = 0; i < selectedHooks.length; i++) {
-        const canDeduct = await deductCredit();
-        if (!canDeduct) {
-          toast.error(`Insufficient credits. Could only prepare ${i} of ${selectedHooks.length} images.`);
-          if (i === 0) {
-            setGenerationPhase('complete');
-            return;
-          }
-          break;
-        }
       }
 
       const results: GeneratedPost[] = [];
@@ -257,41 +224,28 @@ export const SocialMediaPostNode: React.FC<SocialMediaPostNodeProps> = ({ data, 
         const hook = selectedHooks[i];
         toast.info(`Generating image ${i + 1} of ${selectedHooks.length}...`);
 
-        const requestBody: any = {
-          prompt: hook.visualConcept,
-          isSocialPost: true,
-          visualConcept: hook.visualConcept,
-          negativeSpacePosition: hook.negativeSpacePosition,
-          targetMood: hook.targetMood,
+        const socialPrompt = buildSocialPostPrompt({
+          hook,
           platform,
           postType,
           width: currentSize.width,
           height: currentSize.height,
-          // Pass text content to be rendered in the image
-          headline: hook.headline,
-          bodyCopy: hook.bodyCopy,
-          cta: hook.cta,
-          modelTier,
-        };
-
-        // Add reference images if connected
-        if (connectedImages.length > 0) {
-          requestBody.images = connectedImages;
-        }
-
-        const { data: result, error: supabaseError } = await supabase.functions.invoke('generate-image', {
-          body: requestBody
+          hasReferenceImages: connectedImages.length > 0,
+          extraContext: hook.visualConcept,
         });
 
-        if (supabaseError) {
-          console.error(`Failed to generate image ${i + 1}:`, supabaseError);
-          continue;
-        }
-
-        if (result?.imageUrl) {
-          results.push({ imageUrl: result.imageUrl, hook });
-        } else if (result?.image) {
-          results.push({ imageUrl: result.image, hook });
+        try {
+          const imageUrl = await generateImage({
+            prompt: socialPrompt,
+            images: connectedImages.length > 0 ? connectedImages : undefined,
+            tier: modelTier,
+            promptMode: 'raw',
+            aspectRatio: currentSize.width === currentSize.height ? '1:1'
+              : currentSize.width > currentSize.height ? '16:9' : '9:16',
+          });
+          results.push({ imageUrl, hook });
+        } catch (imageError) {
+          console.error(`Failed to generate image ${i + 1}:`, imageError);
         }
       }
 

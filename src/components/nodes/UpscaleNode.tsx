@@ -8,26 +8,31 @@ import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
 import { Maximize2, Download, Info } from 'lucide-react';
 import { useNodeDataContext } from '@/contexts/NodeDataContext';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { upscale } from '@/lib/falClient';
+import { superResolution2x } from '@/lib/localAi';
 
 interface UpscaleNodeProps {
   id: string;
   data: any;
 }
 
+type UpscaleEngine = 'local' | 'fal';
+
 export default function UpscaleNode({ id, data }: UpscaleNodeProps) {
   const { getConnectedNodeData, updateNodeData } = useNodeDataContext();
   const { getEdges } = useReactFlow();
-  const { deductCredit } = useAuth();
+  const { ensureKey } = useOnboarding();
   const edges = getEdges();
-  
+
   const [imageUrl, setImageUrl] = useState<string>('');
+  const [engine, setEngine] = useState<UpscaleEngine>(data.upscaleEngine || 'local');
   const [scale, setScale] = useState<number>(2);
   const [faceEnhance, setFaceEnhance] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
   const [result, setResult] = useState<string | null>(null);
   const [originalDimensions, setOriginalDimensions] = useState<{ width: number; height: number } | null>(null);
   const [processingTime, setProcessingTime] = useState<number | null>(null);
@@ -36,11 +41,8 @@ export default function UpscaleNode({ id, data }: UpscaleNodeProps) {
   const connectedImage = getConnectedNodeData(id, edges, 'image');
 
   useEffect(() => {
-    console.log('UpscaleNode - Connected image:', connectedImage);
-    
     if (connectedImage) {
       const img = Array.isArray(connectedImage) ? connectedImage[0] : connectedImage;
-      console.log('UpscaleNode - Setting imageUrl:', img);
       setImageUrl(img);
       loadImageDimensions(img);
     }
@@ -54,62 +56,7 @@ export default function UpscaleNode({ id, data }: UpscaleNodeProps) {
     img.src = url;
   };
 
-  const resizeImageIfNeeded = async (url: string): Promise<string> => {
-    const MAX_PIXELS = 2000000; // Safe limit below Replicate's 2096704
-    
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      
-      img.onload = () => {
-        const totalPixels = img.width * img.height;
-        
-        // If image is within limits, return original URL
-        if (totalPixels <= MAX_PIXELS) {
-          resolve(url);
-          return;
-        }
-        
-        // Calculate scale factor to fit within pixel limit
-        const scaleFactor = Math.sqrt(MAX_PIXELS / totalPixels);
-        const newWidth = Math.floor(img.width * scaleFactor);
-        const newHeight = Math.floor(img.height * scaleFactor);
-        
-        console.log(`Resizing image from ${img.width}x${img.height} to ${newWidth}x${newHeight}`);
-        
-        // Create canvas and resize
-        const canvas = document.createElement('canvas');
-        canvas.width = newWidth;
-        canvas.height = newHeight;
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx) {
-          reject(new Error('Failed to get canvas context'));
-          return;
-        }
-        
-        ctx.drawImage(img, 0, 0, newWidth, newHeight);
-        
-        // Convert to base64
-        canvas.toBlob((blob) => {
-          if (!blob) {
-            reject(new Error('Failed to create blob'));
-            return;
-          }
-          
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            resolve(reader.result as string);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        }, 'image/jpeg', 0.95);
-      };
-      
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = url;
-    });
-  };
+  const effectiveScale = engine === 'local' ? 2 : scale;
 
   const handleUpscale = async () => {
     if (!imageUrl) {
@@ -117,53 +64,25 @@ export default function UpscaleNode({ id, data }: UpscaleNodeProps) {
       return;
     }
 
+    if (engine === 'fal' && !(await ensureKey())) {
+      return;
+    }
+
     setIsProcessing(true);
     setProgress(0);
+    setProgressMessage('');
     const startTime = Date.now();
 
+    const progressInterval = setInterval(() => {
+      setProgress(prev => Math.min(prev + 5, 90));
+    }, 500);
+
     try {
-      // Check and deduct credit before processing
-      const canDeduct = await deductCredit();
-      if (!canDeduct) {
-        toast.error('Insufficient credits. Please upgrade your plan.');
-        setIsProcessing(false);
-        return;
-      }
-
-      const progressInterval = setInterval(() => {
-        setProgress(prev => Math.min(prev + 5, 90));
-      }, 500);
-
-      // Resize image if needed to fit Replicate's GPU memory limits
-      const processedImageUrl = await resizeImageIfNeeded(imageUrl);
-      
-      console.log('Starting upscale with:', { imageUrl: processedImageUrl, scale, faceEnhance });
-
-      const { data: functionData, error: functionError } = await supabase.functions.invoke('upscale-image', {
-        body: { 
-          image: processedImageUrl,
-          scale,
-          faceEnhance
-        }
-      });
-
-      clearInterval(progressInterval);
-
-      if (functionError) {
-        throw functionError;
-      }
-
-      console.log('Upscale response:', functionData);
-
-      let upscaledUrl = functionData.output;
-      
-      // Handle array response
-      if (Array.isArray(upscaledUrl)) {
-        upscaledUrl = upscaledUrl[0];
-      }
-
-      if (!upscaledUrl) {
-        throw new Error('No upscaled image returned');
+      let upscaledUrl: string;
+      if (engine === 'local') {
+        upscaledUrl = await superResolution2x(imageUrl, setProgressMessage);
+      } else {
+        upscaledUrl = await upscale({ image: imageUrl, scale, faceEnhance });
       }
 
       const endTime = Date.now();
@@ -172,35 +91,36 @@ export default function UpscaleNode({ id, data }: UpscaleNodeProps) {
       setResult(upscaledUrl);
       setProcessingTime(timeElapsed);
       setProgress(100);
-      updateNodeData(id, { 
+      updateNodeData(id, {
         result: upscaledUrl,
         upscaledImage: upscaledUrl,
-        scale,
+        scale: effectiveScale,
+        upscaleEngine: engine,
         processingTime: timeElapsed
       });
 
-      toast.success(`Image upscaled ${scale}x in ${timeElapsed.toFixed(1)}s`);
+      toast.success(`Image upscaled ${effectiveScale}x in ${timeElapsed.toFixed(1)}s`);
     } catch (error: any) {
       console.error('Upscale error:', error);
       toast.error(error.message || 'Failed to upscale image');
       setProgress(0);
     } finally {
+      clearInterval(progressInterval);
+      setProgressMessage('');
       setIsProcessing(false);
     }
   };
 
   const handleDownload = () => {
     if (!result) return;
-    
+
     const link = document.createElement('a');
     link.href = result;
-    link.download = `upscaled-${scale}x-${Date.now()}.png`;
+    link.download = `upscaled-${effectiveScale}x-${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
-
-  const estimatedCost = 0.0022; // Cost per upscale in USD
 
   return (
     <Card className="w-[400px] shadow-lg">
@@ -228,9 +148,9 @@ export default function UpscaleNode({ id, data }: UpscaleNodeProps) {
 
         {imageUrl && (
           <div className="space-y-2">
-            <img 
-              src={imageUrl} 
-              alt="Source" 
+            <img
+              src={imageUrl}
+              alt="Source"
               className="w-full h-32 object-cover rounded border"
             />
             {originalDimensions && (
@@ -242,54 +162,65 @@ export default function UpscaleNode({ id, data }: UpscaleNodeProps) {
         )}
 
         <div className="space-y-2">
-          <Label>Scale Factor</Label>
-          <Select value={scale.toString()} onValueChange={(v) => setScale(Number(v))}>
+          <Label>Engine</Label>
+          <Select value={engine} onValueChange={(v) => setEngine(v as UpscaleEngine)}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="2">2x (Double)</SelectItem>
-              <SelectItem value="4">4x (Quadruple)</SelectItem>
+              <SelectItem value="local">Local AI — free, 2x, runs in browser</SelectItem>
+              <SelectItem value="fal">fal.ai ESRGAN — 2x/4x + face enhance</SelectItem>
             </SelectContent>
           </Select>
-          {originalDimensions && (
-            <p className="text-xs text-muted-foreground">
-              Output: {originalDimensions.width * scale} × {originalDimensions.height * scale}
-            </p>
-          )}
         </div>
 
-        <div className="flex items-center justify-between">
-          <Label htmlFor="face-enhance" className="flex items-center gap-2">
-            Face Enhancement
-            <Info className="w-3 h-3 text-muted-foreground" />
-          </Label>
-          <Switch
-            id="face-enhance"
-            checked={faceEnhance}
-            onCheckedChange={setFaceEnhance}
-          />
-        </div>
-
-        <div className="bg-muted/50 p-3 rounded-md space-y-1">
-          <div className="flex justify-between text-xs">
-            <span className="text-muted-foreground">Credit cost:</span>
-            <span className="font-medium">1 credit</span>
-          </div>
-          {processingTime && (
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Processing time:</span>
-              <span className="font-medium">{processingTime.toFixed(1)}s</span>
+        {engine === 'fal' && (
+          <>
+            <div className="space-y-2">
+              <Label>Scale Factor</Label>
+              <Select value={scale.toString()} onValueChange={(v) => setScale(Number(v))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">2x (Double)</SelectItem>
+                  <SelectItem value="4">4x (Quadruple)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          )}
-        </div>
 
-        <Button 
-          onClick={handleUpscale} 
+            <div className="flex items-center justify-between">
+              <Label htmlFor="face-enhance" className="flex items-center gap-2">
+                Face Enhancement
+                <Info className="w-3 h-3 text-muted-foreground" />
+              </Label>
+              <Switch
+                id="face-enhance"
+                checked={faceEnhance}
+                onCheckedChange={setFaceEnhance}
+              />
+            </div>
+          </>
+        )}
+
+        {originalDimensions && (
+          <p className="text-xs text-muted-foreground">
+            Output: {originalDimensions.width * effectiveScale} × {originalDimensions.height * effectiveScale}
+          </p>
+        )}
+
+        {engine === 'local' && (
+          <p className="text-xs text-muted-foreground">
+            Free Swin2SR model (~60MB, downloads once and stays cached). Large images are capped at 512px input.
+          </p>
+        )}
+
+        <Button
+          onClick={handleUpscale}
           disabled={!imageUrl || isProcessing}
           className="w-full"
         >
-          {isProcessing ? 'Upscaling...' : `Upscale ${scale}x`}
+          {isProcessing ? 'Upscaling...' : `Upscale ${effectiveScale}x`}
         </Button>
 
         {!imageUrl && (
@@ -302,7 +233,7 @@ export default function UpscaleNode({ id, data }: UpscaleNodeProps) {
           <div className="space-y-1">
             <Progress value={progress} />
             <p className="text-xs text-muted-foreground text-center">
-              {progress}% complete
+              {progressMessage || `${progress}% complete`}
             </p>
           </div>
         )}
@@ -310,21 +241,27 @@ export default function UpscaleNode({ id, data }: UpscaleNodeProps) {
         {result && (
           <div className="space-y-2">
             <Label>Upscaled Result</Label>
-            <img 
-              src={result} 
-              alt="Upscaled" 
+            <img
+              src={result}
+              alt="Upscaled"
               className="w-full rounded border"
             />
-            <Button 
+            <Button
               onClick={handleDownload}
               variant="outline"
               className="w-full"
               size="sm"
             >
               <Download className="w-4 h-4 mr-2" />
-              Download {scale}x Image
+              Download {effectiveScale}x Image
             </Button>
           </div>
+        )}
+
+        {processingTime && !isProcessing && (
+          <p className="text-xs text-muted-foreground text-center">
+            Processed in {processingTime.toFixed(1)}s
+          </p>
         )}
       </CardContent>
     </Card>

@@ -7,11 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Loader2, Edit3, Save, FolderOpen } from 'lucide-react';
 import { NodeData } from '@/types/nodeEditor';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNodeDataContext } from '@/contexts/NodeDataContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { CreditService } from '@/services/creditService';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { generateImage } from '@/lib/falClient';
 import { ImagePreviewModal } from '../ImagePreviewModal';
 import { PromptSnippetModal } from '../PromptSnippetModal';
 import { ModelTierSelector } from '../ModelTierSelector';
@@ -36,7 +35,7 @@ export const ProcessingNode: React.FC<ProcessingNodeProps> = ({ data, id }) => {
   const [modelTier, setModelTier] = useState<string>(data.modelTier || DEFAULT_TIER_ID);
   const { getConnectedNodeData, getAllConnectedNodeData, updateNodeData, nodeData } = useNodeDataContext();
   const { getEdges } = useReactFlow();
-  const { user, deductCredit } = useAuth();
+  const { ensureKey } = useOnboarding();
 
   // Get connected input data
   const edges = getEdges();
@@ -72,16 +71,7 @@ export const ProcessingNode: React.FC<ProcessingNodeProps> = ({ data, id }) => {
     setProcessing(true);
     setError('');
 
-    // Check authentication and credits
-    if (!user) {
-      toast.error('Please sign up to generate images.');
-      setProcessing(false);
-      return;
-    }
-
-    const canDeduct = await deductCredit();
-    if (!canDeduct) {
-      toast.error('Insufficient credits. Please upgrade your plan.');
+    if (!(await ensureKey())) {
       setProcessing(false);
       return;
     }
@@ -89,53 +79,22 @@ export const ProcessingNode: React.FC<ProcessingNodeProps> = ({ data, id }) => {
     try {
       // Enhanced prompt for edit functionality with context if available
       let enhancedPrompt = `Edit the image: ${finalPrompt}. Maintain the overall composition while making the requested changes.`;
+      const strengthValue = strength[0];
+      if (strengthValue < 1) {
+        enhancedPrompt += ` Apply the edit at roughly ${Math.round(strengthValue * 100)}% intensity, keeping the rest of the image close to the original.`;
+      }
       if (connectedContext) {
         enhancedPrompt += `\n\nAdditional context: ${connectedContext}`;
       }
 
-      const requestBody: any = {
+      const imageUrl = await generateImage({
         prompt: enhancedPrompt,
-        strength: strength[0],
-        modelTier,
-      };
-
-      // Include connected images if available
-      if (connectedImages && connectedImages.length > 0) {
-        console.log('Sending images to edge function:', connectedImages);
-        
-        // For multiple images, send them as base64 data if they are data URLs
-        const processedImages = connectedImages.map(imageUrl => {
-          if (typeof imageUrl === 'string' && imageUrl.startsWith('data:')) {
-            // It's a base64 data URL
-            const [header, data] = imageUrl.split(',');
-            const mimeType = header.split(':')[1].split(';')[0];
-            return {
-              data: data,
-              type: mimeType
-            };
-          } else {
-            // It's a regular URL
-            return imageUrl;
-          }
-        });
-        
-        requestBody.images = processedImages;
-      }
-
-      const { data: functionData, error: functionError } = await supabase.functions.invoke('generate-image', {
-        body: requestBody,
+        images: connectedImages?.length ? connectedImages : undefined,
+        tier: modelTier,
       });
 
-      if (functionError) {
-        throw new Error(functionError.message);
-      }
-
-      if (functionData?.imageUrl) {
-        setResult(functionData.imageUrl);
-        toast.success('Image processed successfully!');
-      } else {
-        throw new Error(functionData?.error || 'Processing failed');
-      }
+      setResult(imageUrl);
+      toast.success('Image processed successfully!');
     } catch (err) {
       console.error('Processing error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Processing failed';

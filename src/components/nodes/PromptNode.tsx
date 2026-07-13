@@ -8,10 +8,9 @@ import { Button } from '@/components/ui/button';
 import { MessageSquare, Zap, Loader2, Save, FolderOpen } from 'lucide-react';
 import { NodeData } from '@/types/nodeEditor';
 import { useNodeDataContext } from '@/contexts/NodeDataContext';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
-import { CreditService } from '@/services/creditService';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { generateImage } from '@/lib/falClient';
 import { ImagePreviewModal } from '../ImagePreviewModal';
 import { PromptSnippetModal } from '../PromptSnippetModal';
 import { ModelTierSelector } from '../ModelTierSelector';
@@ -30,7 +29,7 @@ export const PromptNode: React.FC<PromptNodeProps> = ({ data, id }) => {
   const [snippetModalTab, setSnippetModalTab] = useState<'save' | 'load'>('save');
   const [modelTier, setModelTier] = useState<string>(data.modelTier || DEFAULT_TIER_ID);
   const { updateNodeData, getNodeData } = useNodeDataContext();
-  const { user, deductCredit } = useAuth();
+  const { ensureKey } = useOnboarding();
   
   const characterCount = prompt.length;
   const maxCharacters = 1000;
@@ -70,38 +69,15 @@ export const PromptNode: React.FC<PromptNodeProps> = ({ data, id }) => {
     setGenerating(true);
     setGeneratedImage(''); // Clear old image when starting new generation
 
-    // Check authentication and credits
-    if (!user) {
-      toast.error('Please sign up to generate images.');
-      setGenerating(false);
-      return;
-    }
-
-    const canDeduct = await deductCredit();
-    if (!canDeduct) {
-      toast.error('Insufficient credits. Please upgrade your plan.');
+    if (!(await ensureKey())) {
       setGenerating(false);
       return;
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-image', {
-        body: {
-          prompt: prompt,
-          modelTier,
-        },
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      if (data?.imageUrl) {
-        setGeneratedImage(data.imageUrl);
-        toast.success('Image generated successfully!');
-      } else {
-        throw new Error('No image URL returned');
-      }
+      const imageUrl = await generateImage({ prompt, tier: modelTier });
+      setGeneratedImage(imageUrl);
+      toast.success('Image generated successfully!');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to generate image';
       toast.error(errorMessage);
