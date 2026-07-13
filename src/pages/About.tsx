@@ -554,15 +554,15 @@ const About = () => {
             <div className="flex items-start gap-3">
               <div className="mt-1 text-primary">✓</div>
               <div>
-                <p className="font-semibold">Credit-Based System</p>
-                <p className="text-sm text-muted-foreground">Flexible usage across Free, Pro, and Enterprise tiers</p>
+                <p className="font-semibold">Bring Your Own Key</p>
+                <p className="text-sm text-muted-foreground">Pay fal.ai directly — no accounts, no markup, plus free local AI</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <div className="mt-1 text-primary">✓</div>
               <div>
-                <p className="font-semibold">Cloud Projects</p>
-                <p className="text-sm text-muted-foreground">Save and load workflows anytime, anywhere</p>
+                <p className="font-semibold">Local Projects</p>
+                <p className="text-sm text-muted-foreground">Everything saved in your browser, with ZIP export/import</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
