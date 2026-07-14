@@ -22,6 +22,18 @@ export interface UnsplashSearchResult {
   totalPages: number;
 }
 
+/**
+ * Unsplash API guidelines require triggering the download endpoint when a
+ * photo is actually used. Fire-and-forget; failures are non-fatal.
+ */
+export const trackUnsplashDownload = (downloadUrl: string): void => {
+  const accessKey = getUnsplashKey();
+  if (!accessKey || !downloadUrl) return;
+  fetch(downloadUrl, {
+    headers: { Authorization: `Client-ID ${accessKey}`, 'Accept-Version': 'v1' },
+  }).catch(() => undefined);
+};
+
 export const searchUnsplash = async (query: string, page = 1, perPage = 20): Promise<UnsplashSearchResult> => {
   const accessKey = getUnsplashKey();
   if (!accessKey) throw new UnsplashKeyMissingError();

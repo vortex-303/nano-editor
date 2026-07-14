@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Clapperboard, Download } from 'lucide-react';
 import { NodeData } from '@/types/nodeEditor';
 import { useNodeDataContext } from '@/contexts/NodeDataContext';
@@ -40,8 +41,23 @@ void main() {
 
 const LOOP_SECONDS = 4;
 
+type VideoFormat = 'webm' | 'mp4';
+
+const FORMAT_MIME_CANDIDATES: Record<VideoFormat, string[]> = {
+  mp4: ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4'],
+  webm: ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'],
+};
+
+const supportedMime = (format: VideoFormat): string | null =>
+  typeof MediaRecorder !== 'undefined'
+    ? FORMAT_MIME_CANDIDATES[format].find((m) => MediaRecorder.isTypeSupported(m)) ?? null
+    : null;
+
+const MP4_SUPPORTED = !!supportedMime('mp4');
+
 export const ParallaxNode: React.FC<ParallaxNodeProps> = ({ data, id }) => {
   const [amplitude, setAmplitude] = useState([0.04]);
+  const [format, setFormat] = useState<VideoFormat>(MP4_SUPPORTED ? 'mp4' : 'webm');
   const [depthUrl, setDepthUrl] = useState<string>('');
   const [preparing, setPreparing] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -181,20 +197,22 @@ export const ParallaxNode: React.FC<ParallaxNodeProps> = ({ data, id }) => {
     setRecording(true);
     try {
       const stream = canvas.captureStream(30);
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+      const mimeType = supportedMime(format) ?? supportedMime('webm');
+      if (!mimeType) throw new Error('Video recording is not supported in this browser');
+      const extension = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm';
       const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
       recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
+        const blob = new Blob(chunks, { type: mimeType.split(';')[0] });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `parallax-${Date.now()}.webm`;
+        link.download = `parallax-${Date.now()}.${extension}`;
         link.click();
         URL.revokeObjectURL(url);
         setRecording(false);
-        toast.success('Parallax video exported');
+        toast.success(`Parallax video exported (${extension.toUpperCase()})`);
       };
       recorder.start();
       setTimeout(() => recorder.stop(), LOOP_SECONDS * 1000);
@@ -248,6 +266,21 @@ export const ParallaxNode: React.FC<ParallaxNodeProps> = ({ data, id }) => {
           />
         </div>
 
+        <div className="space-y-1">
+          <Label className="text-xs">Export format</Label>
+          <Select value={format} onValueChange={(v) => setFormat(v as VideoFormat)}>
+            <SelectTrigger className="h-7 text-xs nodrag">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="mp4" disabled={!MP4_SUPPORTED}>
+                MP4 (H.264){!MP4_SUPPORTED ? ' — not supported in this browser' : ''}
+              </SelectItem>
+              <SelectItem value="webm">WebM (VP9)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -278,7 +311,7 @@ export const ParallaxNode: React.FC<ParallaxNodeProps> = ({ data, id }) => {
               </>
             ) : (
               <>
-                <Download className="w-3 h-3 mr-1" /> Export WebM
+                <Download className="w-3 h-3 mr-1" /> Export {format.toUpperCase()}
               </>
             )}
           </Button>

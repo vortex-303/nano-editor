@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { searchUnsplash, UnsplashKeyMissingError, type UnsplashImage } from '@/lib/unsplashClient';
+import { searchUnsplash, trackUnsplashDownload, UnsplashKeyMissingError, type UnsplashImage } from '@/lib/unsplashClient';
 
 interface ImageSearchModalProps {
   isOpen: boolean;
@@ -62,6 +62,7 @@ export const ImageSearchModal: React.FC<ImageSearchModalProps> = ({
   };
 
   const handleImageSelect = (image: UnsplashImage) => {
+    trackUnsplashDownload(image.downloadUrl);
     onImageSelect(image.url);
     onClose();
     toast({
