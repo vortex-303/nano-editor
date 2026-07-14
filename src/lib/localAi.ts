@@ -216,7 +216,7 @@ const getFlorence2 = () =>
 
 const getBlipCaptioner = () =>
   cached('blip', () =>
-    pipeline('image-to-text', 'Xenova/blip-image-captioning-base', { device: device() })
+    pipeline('image-to-text', 'Salesforce/blip-image-captioning-base', { device: device() })
   ) as Promise<ImageToTextPipeline>;
 
 export const describeImage = async (imageSrc: string, onProgress?: ProgressCallback): Promise<string> => {
