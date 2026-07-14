@@ -27,7 +27,9 @@ import {
   Layers,
   ScanEye,
   Mountain,
-  Scissors
+  Scissors,
+  Eraser,
+  Clapperboard
 } from 'lucide-react';
 
 interface NodePaletteProps {
@@ -57,7 +59,9 @@ const nodeCategories = [
       { type: 'effects', label: 'Effects', icon: Wand2, description: 'Apply filters and effects like background removal' },
       { type: 'describeImage', label: 'Describe Image', icon: ScanEye, description: 'Local AI caption — feeds Prompt/Context inputs (free)' },
       { type: 'depthMap', label: 'Depth Map', icon: Mountain, description: 'Local depth estimation with Depth Anything V2 (free)' },
-      { type: 'segment', label: 'Click to Cut Out', icon: Scissors, description: 'Click an object to cut it out with SAM (free, local)' },
+      { type: 'segment', label: 'Click to Cut Out', icon: Scissors, description: 'Click or describe an object to cut it out (free, local)' },
+      { type: 'erase', label: 'Object Eraser', icon: Eraser, description: 'Remove objects — click or describe, SAM + LaMa inpainting (free, local)' },
+      { type: 'parallax', label: 'Depth Parallax', icon: Clapperboard, description: '2.5D parallax animation from image + depth, exports WebM (free, local)' },
       { type: 'vectorize', label: 'Vectorize', icon: Sparkles, description: 'Convert images to SVG vectors' },
       { type: 'pixelate', label: 'Pixelate', icon: Grid3X3, description: 'Generate 8-bit or 16-bit pixel art' },
       { type: 'halftoneEffect', label: 'Halftone', icon: Sparkles, description: 'Apply halftone shading with dot, ordered, or dithering modes' },

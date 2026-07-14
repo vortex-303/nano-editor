@@ -10,6 +10,7 @@ import {
   type DepthEstimationPipeline,
   type ImageToTextPipeline,
   type ImageToImagePipeline,
+  type ZeroShotObjectDetectionPipeline,
 } from '@huggingface/transformers';
 
 // All models download from the HF Hub on first use and are cached by the browser
@@ -273,6 +274,59 @@ export const estimateDepth = async (imageSrc: string, onProgress?: ProgressCallb
   const depth = (Array.isArray(result) ? result[0] : result as { depth?: RawImage }).depth;
   if (!depth) throw new Error('Depth estimation returned no result');
   return rawImageToCanvas(depth).toDataURL('image/png', 1.0);
+};
+
+// --- Zero-shot object detection (OWLv2) — find objects by text ---
+
+const getDetector = () =>
+  cached('owlv2', () =>
+    pipeline('zero-shot-object-detection', 'Xenova/owlv2-base-patch16-ensemble', { device: device() })
+  ) as Promise<ZeroShotObjectDetectionPipeline>;
+
+export interface DetectedObject {
+  label: string;
+  score: number;
+  /** Box in 0..1 relative coordinates */
+  box: { x: number; y: number; width: number; height: number };
+}
+
+export const detectObjects = async (
+  imageSrc: string,
+  query: string,
+  onProgress?: ProgressCallback
+): Promise<DetectedObject[]> => {
+  if (!query.trim()) throw new Error('Describe what to find (e.g. "the dog")');
+
+  onProgress?.('Loading OWLv2 detection model...');
+  const detector = await getDetector();
+
+  onProgress?.(`Looking for "${query}"...`);
+  const image = await loadImageElement(imageSrc);
+  const { canvas } = imageToCanvas(image);
+  const results = await detector(canvas.toDataURL('image/jpeg', 0.9), [query.trim()], {
+    threshold: 0.1,
+    top_k: 5,
+  });
+
+  const detections = (Array.isArray(results) ? results : [results]) as Array<{
+    score: number;
+    label: string;
+    box: { xmin: number; ymin: number; xmax: number; ymax: number };
+  }>;
+
+  return detections
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score)
+    .map((d) => ({
+      label: d.label,
+      score: d.score,
+      box: {
+        x: d.box.xmin / canvas.width,
+        y: d.box.ymin / canvas.height,
+        width: (d.box.xmax - d.box.xmin) / canvas.width,
+        height: (d.box.ymax - d.box.ymin) / canvas.height,
+      },
+    }));
 };
 
 // --- Click-to-mask segmentation (SlimSAM) ---

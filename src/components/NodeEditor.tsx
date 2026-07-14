@@ -40,6 +40,8 @@ import { BatchProcessingNode } from './nodes/BatchProcessingNode';
 import { DescribeImageNode } from './nodes/DescribeImageNode';
 import { DepthMapNode } from './nodes/DepthMapNode';
 import { SegmentNode } from './nodes/SegmentNode';
+import { EraseNode } from './nodes/EraseNode';
+import { ParallaxNode } from './nodes/ParallaxNode';
 
 import { NodePalette } from './NodePalette';
 import { WorkflowToolbar } from './WorkflowToolbar';
@@ -77,6 +79,8 @@ const nodeTypes = {
   describeImage: DescribeImageNode,
   depthMap: DepthMapNode,
   segment: SegmentNode,
+  erase: EraseNode,
+  parallax: ParallaxNode,
 };
 
 const initialNodes: Node[] = [];

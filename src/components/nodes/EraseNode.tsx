@@ -5,23 +5,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Scissors, Download, RotateCcw, Search } from 'lucide-react';
+import { Loader2, Eraser, Download, RotateCcw, Search } from 'lucide-react';
 import { NodeData } from '@/types/nodeEditor';
 import { useNodeDataContext } from '@/contexts/NodeDataContext';
 import { segmentWithPoints, detectObjects, type SamPoint } from '@/lib/localAi';
 import { toast } from 'sonner';
 import { ImagePreviewModal } from '../ImagePreviewModal';
 
-interface SegmentNodeProps {
+interface EraseNodeProps {
   data: NodeData;
   id: string;
 }
 
-export const SegmentNode: React.FC<SegmentNodeProps> = ({ data, id }) => {
+export const EraseNode: React.FC<EraseNodeProps> = ({ data, id }) => {
   const [points, setPoints] = useState<SamPoint[]>([]);
   const [findQuery, setFindQuery] = useState('');
-  const [cutout, setCutout] = useState<string>((data.result as string) || '');
-  const [mask, setMask] = useState<string>('');
+  const [result, setResult] = useState<string>((data.result as string) || '');
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState('');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -34,14 +33,13 @@ export const SegmentNode: React.FC<SegmentNodeProps> = ({ data, id }) => {
   const imageUrl = Array.isArray(connectedImage) ? connectedImage[0] : connectedImage;
 
   useEffect(() => {
-    updateNodeData(id, { result: cutout, mask, processing });
-  }, [cutout, mask, processing, id, updateNodeData]);
+    updateNodeData(id, { result, processing });
+  }, [result, processing, id, updateNodeData]);
 
-  // Reset points when the input image changes
+  // Reset when input image changes
   useEffect(() => {
     setPoints([]);
-    setCutout('');
-    setMask('');
+    setResult('');
   }, [imageUrl]);
 
   const handleImageClick = (e: React.MouseEvent<HTMLImageElement>) => {
@@ -49,21 +47,22 @@ export const SegmentNode: React.FC<SegmentNodeProps> = ({ data, id }) => {
     const rect = imageRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width;
     const y = (e.clientY - rect.top) / rect.height;
-    // Shift-click adds a negative (exclude) point
     setPoints(prev => [...prev, { x, y, positive: !e.shiftKey }]);
   };
 
-  const handleSegment = async (pointsToUse: SamPoint[] = points) => {
+  const runErase = async (pointsToUse: SamPoint[]) => {
     if (!imageUrl || pointsToUse.length === 0) return;
     setProcessing(true);
     try {
-      const result = await segmentWithPoints(imageUrl, pointsToUse, setProgress);
-      setCutout(result.cutout);
-      setMask(result.mask);
-      toast.success('Object segmented');
+      const { mask } = await segmentWithPoints(imageUrl, pointsToUse, setProgress);
+      // onnxruntime-web is heavy — load it only when erasing is actually used
+      const { eraseWithLama } = await import('@/lib/localInpaint');
+      const erased = await eraseWithLama(imageUrl, mask, setProgress);
+      setResult(erased);
+      toast.success('Object erased');
     } catch (error) {
-      console.error('Segmentation failed:', error);
-      toast.error(error instanceof Error ? error.message : 'Segmentation failed');
+      console.error('Erase failed:', error);
+      toast.error(error instanceof Error ? error.message : 'Erase failed');
     } finally {
       setProcessing(false);
       setProgress('');
@@ -77,6 +76,8 @@ export const SegmentNode: React.FC<SegmentNodeProps> = ({ data, id }) => {
       const detections = await detectObjects(imageUrl, findQuery, setProgress);
       if (detections.length === 0) {
         toast.error(`Could not find "${findQuery}" in the image`);
+        setProcessing(false);
+        setProgress('');
         return;
       }
       const best = detections[0];
@@ -86,12 +87,11 @@ export const SegmentNode: React.FC<SegmentNodeProps> = ({ data, id }) => {
         positive: true,
       }];
       setPoints(seedPoints);
-      toast.info(`Found "${best.label}" (${Math.round(best.score * 100)}%) — segmenting...`);
-      await handleSegment(seedPoints);
+      toast.info(`Found "${best.label}" (${Math.round(best.score * 100)}%) — erasing...`);
+      await runErase(seedPoints);
     } catch (error) {
       console.error('Find by text failed:', error);
       toast.error(error instanceof Error ? error.message : 'Detection failed');
-    } finally {
       setProcessing(false);
       setProgress('');
     }
@@ -99,15 +99,14 @@ export const SegmentNode: React.FC<SegmentNodeProps> = ({ data, id }) => {
 
   const handleReset = () => {
     setPoints([]);
-    setCutout('');
-    setMask('');
+    setResult('');
   };
 
   const handleDownload = () => {
-    if (!cutout) return;
+    if (!result) return;
     const link = document.createElement('a');
-    link.href = cutout;
-    link.download = `cutout-${Date.now()}.png`;
+    link.href = result;
+    link.download = `erased-${Date.now()}.png`;
     link.click();
   };
 
@@ -116,8 +115,8 @@ export const SegmentNode: React.FC<SegmentNodeProps> = ({ data, id }) => {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Scissors size={16} className="text-primary" />
-            <span className="text-sm font-medium">Click to Cut Out</span>
+            <Eraser size={16} className="text-primary" />
+            <span className="text-sm font-medium">Object Eraser</span>
           </div>
           <Badge variant="secondary" className="text-[10px]">Local · Free</Badge>
         </div>
@@ -127,13 +126,13 @@ export const SegmentNode: React.FC<SegmentNodeProps> = ({ data, id }) => {
             <div className="relative">
               <img
                 ref={imageRef}
-                src={imageUrl}
+                src={result || imageUrl}
                 alt="Input"
                 className="w-full rounded border cursor-crosshair nodrag"
                 onClick={handleImageClick}
                 draggable={false}
               />
-              {points.map((p, i) => (
+              {!result && points.map((p, i) => (
                 <div
                   key={i}
                   className={`absolute w-3 h-3 rounded-full border-2 border-white -translate-x-1/2 -translate-y-1/2 pointer-events-none ${p.positive ? 'bg-green-500' : 'bg-red-500'}`}
@@ -142,17 +141,19 @@ export const SegmentNode: React.FC<SegmentNodeProps> = ({ data, id }) => {
               ))}
             </div>
             <p className="text-[10px] text-muted-foreground">
-              Click the object to keep it · Shift-click to exclude an area (SlimSAM, runs in your browser)
+              {result
+                ? 'Erased — click Reset to remove something else'
+                : 'Click the object to erase (shift-click to exclude), or find it by text. SAM + LaMa, fully local. First use downloads ~200MB.'}
             </p>
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground">Connect an image, then click on the object you want to cut out.</p>
+          <p className="text-xs text-muted-foreground">Connect an image, then click or describe the object you want to remove.</p>
         )}
 
-        {imageUrl && (
+        {imageUrl && !result && (
           <div className="flex gap-1.5">
             <Input
-              placeholder='Find by text, e.g. "the dog"'
+              placeholder='Erase by text, e.g. "the car"'
               value={findQuery}
               onChange={(e) => setFindQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleFindByText()}
@@ -165,7 +166,7 @@ export const SegmentNode: React.FC<SegmentNodeProps> = ({ data, id }) => {
               className="h-7 text-xs shrink-0"
               onClick={handleFindByText}
               disabled={!imageUrl || !findQuery.trim() || processing}
-              title="Find the object by description (OWLv2) and cut it out"
+              title="Find the object by description and erase it"
             >
               <Search className="w-3 h-3" />
             </Button>
@@ -177,16 +178,16 @@ export const SegmentNode: React.FC<SegmentNodeProps> = ({ data, id }) => {
             variant="outline"
             size="sm"
             className="flex-1 h-7 text-xs"
-            onClick={() => handleSegment()}
-            disabled={!imageUrl || points.length === 0 || processing}
+            onClick={() => runErase(points)}
+            disabled={!imageUrl || points.length === 0 || processing || !!result}
           >
             {processing ? (
               <>
                 <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                {progress || 'Segmenting...'}
+                {progress || 'Erasing...'}
               </>
             ) : (
-              `Cut Out (${points.length} point${points.length === 1 ? '' : 's'})`
+              `Erase (${points.length} point${points.length === 1 ? '' : 's'})`
             )}
           </Button>
           <Button
@@ -194,29 +195,20 @@ export const SegmentNode: React.FC<SegmentNodeProps> = ({ data, id }) => {
             size="sm"
             className="h-7 text-xs"
             onClick={handleReset}
-            disabled={processing || (points.length === 0 && !cutout)}
+            disabled={processing || (points.length === 0 && !result)}
             title="Reset points and result"
           >
             <RotateCcw className="w-3 h-3" />
           </Button>
         </div>
 
-        {cutout && (
-          <div className="space-y-2">
-            <Label className="text-xs">Cutout (transparent background)</Label>
-            <div
-              className="rounded border cursor-pointer"
-              style={{ background: 'repeating-conic-gradient(#8882 0% 25%, transparent 0% 50%) 50% / 16px 16px' }}
-            >
-              <img
-                src={cutout}
-                alt="Cutout"
-                className="w-full h-28 object-contain"
-                onClick={() => setIsPreviewOpen(true)}
-              />
-            </div>
-            <Button variant="ghost" size="sm" className="w-full h-6 text-xs" onClick={handleDownload}>
-              <Download className="w-3 h-3 mr-1" /> Download PNG
+        {result && (
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" className="flex-1 h-6 text-xs" onClick={() => setIsPreviewOpen(true)}>
+              Preview
+            </Button>
+            <Button variant="ghost" size="sm" className="flex-1 h-6 text-xs" onClick={handleDownload}>
+              <Download className="w-3 h-3 mr-1" /> Download
             </Button>
           </div>
         )}
@@ -238,7 +230,7 @@ export const SegmentNode: React.FC<SegmentNodeProps> = ({ data, id }) => {
       <ImagePreviewModal
         isOpen={isPreviewOpen}
         onClose={() => setIsPreviewOpen(false)}
-        imageUrl={cutout}
+        imageUrl={result}
       />
     </Card>
   );
