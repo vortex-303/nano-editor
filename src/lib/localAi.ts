@@ -137,24 +137,37 @@ export const removeBackground = async (imageSrc: string, onProgress?: ProgressCa
   return applyMaskToCanvas(canvas, result[0].mask);
 };
 
-// --- Super resolution 2x (caidas/swin2SR-classical-sr-x2-64) ---
+// --- Super resolution (Swin2SR, 2x and 4x) ---
 
-const getUpscaler = () =>
-  cached('swin2sr', () =>
-    pipeline('image-to-image', 'caidas/swin2SR-classical-sr-x2-64', {
+export type LocalUpscaleFactor = 2 | 4;
+
+const SWIN2SR_MODELS: Record<LocalUpscaleFactor, string> = {
+  2: 'caidas/swin2SR-classical-sr-x2-64',
+  // BSRGAN-trained real-world variant — best for photos/AI images (vs the classical x4)
+  4: 'Xenova/swin2SR-realworld-sr-x4-64-bsrgan-psnr',
+};
+
+const getUpscaler = (scale: LocalUpscaleFactor) =>
+  cached(`swin2sr-x${scale}`, () =>
+    pipeline('image-to-image', SWIN2SR_MODELS[scale], {
       device: device(),
       dtype: 'fp32',
     })
   ) as Promise<ImageToImagePipeline>;
 
-export const superResolution2x = async (imageSrc: string, onProgress?: ProgressCallback): Promise<string> => {
+export const superResolution = async (
+  imageSrc: string,
+  scale: LocalUpscaleFactor = 2,
+  onProgress?: ProgressCallback
+): Promise<string> => {
   const image = await loadImageElement(imageSrc);
-  // Swin2SR is heavy; cap input at 512 so 2x output is ~1024
-  const { canvas } = imageToCanvas(image, 512);
+  // Swin2SR is heavy; cap input so output stays manageable (2x → ~1024, 4x → ~1536)
+  const maxInput = scale === 4 ? 384 : 512;
+  const { canvas } = imageToCanvas(image, maxInput);
   try {
-    onProgress?.('Loading Swin2SR model...');
-    const upscaler = await getUpscaler();
-    onProgress?.('Upscaling with AI (2x resolution)...');
+    onProgress?.(`Loading Swin2SR ${scale}x model...`);
+    const upscaler = await getUpscaler(scale);
+    onProgress?.(`Upscaling with AI (${scale}x resolution)...`);
     const result = await upscaler(canvas.toDataURL('image/png'));
     const raw = (Array.isArray(result) ? result[0] : result) as RawImage;
     return rawImageToCanvas(raw).toDataURL('image/png', 1.0);
@@ -162,8 +175,8 @@ export const superResolution2x = async (imageSrc: string, onProgress?: ProgressC
     console.error('Swin2SR failed, using high-quality browser upscaling:', error);
     onProgress?.('Model unavailable — applying high-quality browser upscaling...');
     const outputCanvas = document.createElement('canvas');
-    outputCanvas.width = canvas.width * 2;
-    outputCanvas.height = canvas.height * 2;
+    outputCanvas.width = canvas.width * scale;
+    outputCanvas.height = canvas.height * scale;
     const outputCtx = outputCanvas.getContext('2d');
     if (!outputCtx) throw new Error('Could not get output canvas context');
     outputCtx.imageSmoothingEnabled = true;
@@ -172,6 +185,9 @@ export const superResolution2x = async (imageSrc: string, onProgress?: ProgressC
     return outputCanvas.toDataURL('image/png', 1.0);
   }
 };
+
+export const superResolution2x = (imageSrc: string, onProgress?: ProgressCallback): Promise<string> =>
+  superResolution(imageSrc, 2, onProgress);
 
 // --- Image captioning (Florence-2, BLIP fallback) ---
 

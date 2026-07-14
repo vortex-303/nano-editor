@@ -11,7 +11,7 @@ import { useNodeDataContext } from '@/contexts/NodeDataContext';
 import { toast } from 'sonner';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { upscale } from '@/lib/falClient';
-import { superResolution2x } from '@/lib/localAi';
+import { superResolution, type LocalUpscaleFactor } from '@/lib/localAi';
 
 interface UpscaleNodeProps {
   id: string;
@@ -56,7 +56,7 @@ export default function UpscaleNode({ id, data }: UpscaleNodeProps) {
     img.src = url;
   };
 
-  const effectiveScale = engine === 'local' ? 2 : scale;
+  const effectiveScale = scale;
 
   const handleUpscale = async () => {
     if (!imageUrl) {
@@ -80,7 +80,7 @@ export default function UpscaleNode({ id, data }: UpscaleNodeProps) {
     try {
       let upscaledUrl: string;
       if (engine === 'local') {
-        upscaledUrl = await superResolution2x(imageUrl, setProgressMessage);
+        upscaledUrl = await superResolution(imageUrl, scale as LocalUpscaleFactor, setProgressMessage);
       } else {
         upscaledUrl = await upscale({ image: imageUrl, scale, faceEnhance });
       }
@@ -168,39 +168,37 @@ export default function UpscaleNode({ id, data }: UpscaleNodeProps) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="local">Local AI — free, 2x, runs in browser</SelectItem>
+              <SelectItem value="local">Local AI — free, 2x/4x, runs in browser</SelectItem>
               <SelectItem value="fal">fal.ai ESRGAN — 2x/4x + face enhance</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {engine === 'fal' && (
-          <>
-            <div className="space-y-2">
-              <Label>Scale Factor</Label>
-              <Select value={scale.toString()} onValueChange={(v) => setScale(Number(v))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="2">2x (Double)</SelectItem>
-                  <SelectItem value="4">4x (Quadruple)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        <div className="space-y-2">
+          <Label>Scale Factor</Label>
+          <Select value={scale.toString()} onValueChange={(v) => setScale(Number(v))}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="2">2x (Double)</SelectItem>
+              <SelectItem value="4">4x (Quadruple)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-            <div className="flex items-center justify-between">
-              <Label htmlFor="face-enhance" className="flex items-center gap-2">
-                Face Enhancement
-                <Info className="w-3 h-3 text-muted-foreground" />
-              </Label>
-              <Switch
-                id="face-enhance"
-                checked={faceEnhance}
-                onCheckedChange={setFaceEnhance}
-              />
-            </div>
-          </>
+        {engine === 'fal' && (
+          <div className="flex items-center justify-between">
+            <Label htmlFor="face-enhance" className="flex items-center gap-2">
+              Face Enhancement
+              <Info className="w-3 h-3 text-muted-foreground" />
+            </Label>
+            <Switch
+              id="face-enhance"
+              checked={faceEnhance}
+              onCheckedChange={setFaceEnhance}
+            />
+          </div>
         )}
 
         {originalDimensions && (
@@ -211,7 +209,7 @@ export default function UpscaleNode({ id, data }: UpscaleNodeProps) {
 
         {engine === 'local' && (
           <p className="text-xs text-muted-foreground">
-            Free Swin2SR model (~60MB, downloads once and stays cached). Large images are capped at 512px input.
+            Free Swin2SR models (~60MB each, download once and stay cached). Large images are capped at {scale === 4 ? '384' : '512'}px input to keep processing manageable.
           </p>
         )}
 
