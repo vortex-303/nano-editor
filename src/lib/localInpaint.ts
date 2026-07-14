@@ -11,6 +11,10 @@ const LAMA_SIZE = 512;
 
 // Single-threaded WASM: avoids needing cross-origin isolation (SharedArrayBuffer)
 ort.env.wasm.numThreads = 1;
+// Vite doesn't serve ort's .wasm/.mjs runtime files (the SPA fallback returns
+// index.html, which fails the wasm magic-word check) — load them from the CDN,
+// pinned to the installed package version.
+ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
 
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
 
