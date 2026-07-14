@@ -142,7 +142,8 @@ export const removeBackground = async (imageSrc: string, onProgress?: ProgressCa
 export type LocalUpscaleFactor = 2 | 4;
 
 const SWIN2SR_MODELS: Record<LocalUpscaleFactor, string> = {
-  2: 'caidas/swin2SR-classical-sr-x2-64',
+  // Xenova ONNX ports — the original caidas/ repos are PyTorch-only and fail in Transformers.js
+  2: 'Xenova/swin2SR-classical-sr-x2-64',
   // BSRGAN-trained real-world variant — best for photos/AI images (vs the classical x4)
   4: 'Xenova/swin2SR-realworld-sr-x4-64-bsrgan-psnr',
 };
