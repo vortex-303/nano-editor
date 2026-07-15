@@ -31,6 +31,14 @@ Node-based AI image workflow editor, fully client-side (no backend). De-Lovabled
 - NOT yet live-tested with a real fal key (Prompt→generate etc.).
 - Unsplash search needs user's Access Key (AI API Keys modal).
 
+## Plugin framework (Milestone A shipped 2026-07-15)
+- Tier-1 declarative plugins: `src/plugins/` (types+zod manifest schema, registry w/ useSyncExternalStore, PluginNode auto-form renderer, transformers/fal/onnx runtimes with WebGPU→WASM fallback, loader + idb store `nano-studio-plugins`, PluginManagerModal, MissingPluginNode fallback, requiredPlugins on save).
+- Typed ports + isValidConnection (permissive for unspecified builtin ports).
+- Trial registry at `public/trial-plugins/` (index.json + BiRefNet-lite fp32 / ViT-GPT2 caption / NSFW check) — same format the future `nano-editor-plugins` GitHub registry will serve.
+- 'Add from HF URL' manifest generator (pipeline_tag → node template).
+- Verified in Chrome: install→palette→canvas→typed connect→input propagation→model download→run. Caught real issue: BiRefNet fp16 exceeded GPU storage-buffer limit → added wasm auto-fallback + fp32 manifest. Pending live re-test of full BiRefNet inference.
+- Milestone B (tier-2 sandboxed scripted nodes, iframe+worker) and C (public registry repo + CI + ComfyUI workflow importer) NOT started — see plan file.
+
 ## Next
 1. IONOS DNS records → nano-editor.app live (user doing manually; IONOS API was down 2026-07-14).
 2. Live-test fal flows with real key + local nodes end-to-end.
