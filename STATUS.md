@@ -1,6 +1,6 @@
 # Nano Editor — STATUS
 
-Updated: 2026-07-14
+Updated: 2026-07-14 (batch 4 shipped)
 
 ## What this is
 Node-based AI image workflow editor, fully client-side (no backend). De-Lovabled 2026-07-13 from the original Lovable project (still live separately at nano-art-studio.lovable.app — untouched).
@@ -34,4 +34,5 @@ Node-based AI image workflow editor, fully client-side (no backend). De-Lovabled
 ## Next
 1. IONOS DNS records → nano-editor.app live (user doing manually; IONOS API was down 2026-07-14).
 2. Live-test fal flows with real key + local nodes end-to-end.
-3. Candidate next batch (from 2026-07-14 research, see memory/agent report): BEN2 bg removal (MIT, 209MB), SPAN fast 2x upscaler (~20MB), Mediabunny+WebCodecs frame-exact export + gifenc GIF for Parallax, MI-GAN 30MB fast-erase mode, DDColor colorization, NAFNet deblur, FastVLM-0.5B captioner, worker+OffscreenCanvas inference refactor, Transformers.js ModelRegistry "manage models" panel.
+3. Batch 4 SHIPPED 2026-07-14: BEN2 HQ bg-removal (Effects node), MI-GAN 27MB fast-erase engine (EraseNode default; LaMa=quality), frame-exact MP4/WebM/GIF export via mediabunny+gifenc (ParallaxNode; MediaRecorder removed). MI-GAN mask convention (255=keep) needs live-test verification. DDColor/NAFNet skipped — no hosted ONNX found.
+4. Remaining candidates (from 2026-07-14 research, see memory/agent report): BEN2 bg removal (MIT, 209MB), SPAN fast 2x upscaler (~20MB), Mediabunny+WebCodecs frame-exact export + gifenc GIF for Parallax, MI-GAN 30MB fast-erase mode, DDColor colorization, NAFNet deblur, FastVLM-0.5B captioner, worker+OffscreenCanvas inference refactor, Transformers.js ModelRegistry "manage models" panel.
