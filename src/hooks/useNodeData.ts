@@ -10,12 +10,12 @@ export const useNodeData = () => {
   const [nodeData, setNodeData] = useState<NodeDataState>({});
 
   const updateNodeData = useCallback((nodeId: string, data: Partial<NodeData>) => {
-    console.log(`useNodeData - Updating node ${nodeId} with data:`, data);
-    setNodeData(prev => {
-      const newData = { ...prev, [nodeId]: { ...prev[nodeId], ...data } };
-      console.log(`useNodeData - New complete node data for ${nodeId}:`, newData[nodeId]);
-      return newData;
-    });
+    setNodeData(prev => ({ ...prev, [nodeId]: { ...prev[nodeId], ...data } }));
+  }, []);
+
+  /** Replace the entire node-data store (used by undo/redo and project load). */
+  const setAllNodeData = useCallback((data: NodeDataState) => {
+    setNodeData(data);
   }, []);
 
   const getNodeData = useCallback((nodeId: string): NodeData => {
@@ -122,6 +122,7 @@ export const useNodeData = () => {
   return {
     nodeData,
     updateNodeData,
+    setAllNodeData,
     getNodeData,
     getConnectedNodeData,
     getAllConnectedNodeData,

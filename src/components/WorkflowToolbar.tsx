@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -49,6 +49,13 @@ export const WorkflowToolbar: React.FC<WorkflowToolbarProps> = ({
   const [loadModalOpen, setLoadModalOpen] = useState(false);
   const [saveWorkflowModalOpen, setSaveWorkflowModalOpen] = useState(false);
   const [loadWorkflowModalOpen, setLoadWorkflowModalOpen] = useState(false);
+
+  // Cmd/Ctrl+S keyboard shortcut (dispatched from the editor)
+  useEffect(() => {
+    const open = () => setSaveModalOpen(true);
+    window.addEventListener('nano:save', open);
+    return () => window.removeEventListener('nano:save', open);
+  }, []);
 
   const handleLocalExport = async () => {
     const result = await exportProject(nodes, edges, nodeData, {

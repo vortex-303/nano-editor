@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useSyncExternalStore } from 'react';
+import React, { useCallback, useState, useSyncExternalStore, useRef, useEffect } from 'react';
 import {
   ReactFlow,
   useNodesState,
@@ -10,6 +10,7 @@ import {
   Background,
   Controls,
   MiniMap,
+  type ReactFlowInstance,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -17,6 +18,7 @@ import { NodePalette } from './NodePalette';
 import { WorkflowToolbar } from './WorkflowToolbar';
 import { ConnectionLegend } from './ConnectionLegend';
 import { useNodeData } from '@/hooks/useNodeData';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { NodeData } from '@/types/nodeEditor';
 import { NodeDataContext } from '@/contexts/NodeDataContext';
 import { subscribe, getNodeTypesSnapshot, getPortType, hasNodeType } from '@/plugins/registry';
@@ -31,9 +33,23 @@ export const NodeEditor = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { nodeData, updateNodeData, getNodeData, getConnectedNodeData, getAllConnectedNodeData, propagateDataChange } = useNodeData();
+  const { nodeData, updateNodeData, setAllNodeData, getNodeData, getConnectedNodeData, getAllConnectedNodeData, propagateDataChange } = useNodeData();
   // Registry-driven node types: updates live when plugins are installed/removed
   const nodeTypes = useSyncExternalStore(subscribe, getNodeTypesSnapshot);
+
+  // Live refs so keyboard/history closures always see current state
+  const rfInstance = useRef<ReactFlowInstance | null>(null);
+  const stateRef = useRef({ nodes, edges, nodeData });
+  stateRef.current = { nodes, edges, nodeData };
+
+  const { takeSnapshot, undo, redo, reset: resetHistory } = useUndoRedo({
+    getSnapshot: () => ({ ...stateRef.current }),
+    applySnapshot: (s) => {
+      setNodes(s.nodes);
+      setEdges(s.edges);
+      setAllNodeData(s.nodeData);
+    },
+  });
 
   // Typed-port connection validation. Unknown ports stay permissive so
   // legacy/untyped nodes keep working.
@@ -48,6 +64,7 @@ export const NodeEditor = () => {
 
   // Function to add a new ImageInput node with an image
   const addImageInputNode = useCallback((imageUrl: string) => {
+    takeSnapshot();
     const newNode: Node = {
       id: `imageInput-${Date.now()}`,
       type: 'imageInput',
@@ -55,15 +72,16 @@ export const NodeEditor = () => {
       data: { label: 'Image Input', image: imageUrl },
     };
     setNodes((nds) => [...nds, newNode]);
-    
+
     // Update node data to ensure the image is properly set
     setTimeout(() => {
       updateNodeData(newNode.id, { image: imageUrl });
     }, 0);
-  }, [setNodes, updateNodeData]);
+  }, [setNodes, updateNodeData, takeSnapshot]);
 
   const onConnect = useCallback(
     (params: Connection | Edge) => {
+      takeSnapshot();
       setEdges((eds) => {
         const newEdges = addEdge(params, eds);
         // Propagate data when new connection is made
@@ -73,7 +91,7 @@ export const NodeEditor = () => {
         return newEdges;
       });
     },
-    [setEdges, propagateDataChange, nodes]
+    [setEdges, propagateDataChange, nodes, takeSnapshot]
   );
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
@@ -85,6 +103,7 @@ export const NodeEditor = () => {
   }, []);
 
   const addNode = useCallback((type: string, position: { x: number; y: number }) => {
+    takeSnapshot();
     const newNode: Node = {
       id: `${type}-${Date.now()}`,
       type,
@@ -92,7 +111,26 @@ export const NodeEditor = () => {
       data: { label: `${type} node` },
     };
     setNodes((nds) => [...nds, newNode]);
-  }, [setNodes]);
+  }, [setNodes, takeSnapshot]);
+
+  // Duplicate the currently selected node (Cmd/Ctrl+D)
+  const duplicateSelected = useCallback(() => {
+    const { nodes: curNodes, nodeData: curData } = stateRef.current;
+    const selected = curNodes.find((n) => n.selected) || selectedNode;
+    if (!selected) return;
+    takeSnapshot();
+    const newId = `${selected.type}-${Date.now()}`;
+    const newNode: Node = {
+      ...selected,
+      id: newId,
+      selected: false,
+      position: { x: selected.position.x + 40, y: selected.position.y + 40 },
+      data: { ...selected.data },
+    };
+    setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), newNode]);
+    const srcData = curData[selected.id];
+    if (srcData) setTimeout(() => updateNodeData(newId, { ...srcData }), 0);
+  }, [selectedNode, setNodes, updateNodeData, takeSnapshot]);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -118,6 +156,7 @@ export const NodeEditor = () => {
       };
 
       if (imageFiles.length > 0) {
+        takeSnapshot();
         // Handle dropped image files
         imageFiles.forEach((file, index) => {
           const reader = new FileReader();
@@ -158,10 +197,21 @@ export const NodeEditor = () => {
   );
 
   const clearWorkflow = useCallback(() => {
+    takeSnapshot();
     setNodes([]);
     setEdges([]);
     setSelectedNode(null);
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, takeSnapshot]);
+
+  // Snapshot before React Flow deletes nodes/edges, so Undo can restore them
+  const onBeforeDelete = useCallback(async () => {
+    takeSnapshot();
+    return true;
+  }, [takeSnapshot]);
+
+  const onNodeDragStart = useCallback(() => {
+    takeSnapshot();
+  }, [takeSnapshot]);
 
   const handleImport = useCallback((importedNodes: Node[], importedEdges: Edge[], importedNodeData: { [key: string]: NodeData }) => {
     console.log('NodeEditor - Importing project:');
@@ -194,11 +244,54 @@ export const NodeEditor = () => {
     }, 100);
     
     setSelectedNode(null);
-  }, [setNodes, setEdges, updateNodeData]);
+    resetHistory();
+  }, [setNodes, setEdges, updateNodeData, resetHistory]);
 
   const onNodesDelete = useCallback((nodesToDelete: Node[]) => {
     setSelectedNode(null);
   }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const isTyping = (el: EventTarget | null) => {
+      const t = el as HTMLElement | null;
+      if (!t) return false;
+      const tag = t.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) redo(); else undo();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
+      if (mod && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('nano:save'));
+        return;
+      }
+      if (mod && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        duplicateSelected();
+        return;
+      }
+      // Single-key shortcuts only when not typing in a field
+      if (isTyping(e.target)) return;
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        rfInstance.current?.fitView({ padding: 0.2, duration: 300 });
+      } else if (e.key === 'Escape') {
+        setSelectedNode(null);
+      } else if (e.key === '?') {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('nano:shortcuts'));
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undo, redo, duplicateSelected]);
 
   const onEdgesDelete = useCallback((edgesToDelete: Edge[]) => {
     // Edge deletion is handled automatically by React Flow
@@ -239,6 +332,7 @@ export const NodeEditor = () => {
               <ReactFlow
                 nodes={nodes}
                 edges={edges}
+                onInit={(instance) => { rfInstance.current = instance; }}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
@@ -246,6 +340,8 @@ export const NodeEditor = () => {
                 onPaneClick={onPaneClick}
                 onNodesDelete={onNodesDelete}
                 onEdgesDelete={onEdgesDelete}
+                onBeforeDelete={onBeforeDelete}
+                onNodeDragStart={onNodeDragStart}
                 nodeTypes={nodeTypes}
                 isValidConnection={isValidConnection}
                 fitView
