@@ -75,3 +75,11 @@ Loose ends: live-test fal BYOK flows with real key; reinstall+run BiRefNet fp32 
 DONE: refactor, batch4, plugin framework (A+B), OSS(item1), PWA+SEO+landing pages, analytics, designer credibility (undo/redo, shortcuts, Models manager), 15 workflow templates.
 DEFERRED: new-AI-nodes bucket (no browser-runnable colorize/deblur/restore models), Video AI pillar (user deferred), Milestone C (public registry + ComfyUI import — user skipped).
 NEXT candidates: item 5 (monetization/launch strategy), live-test fal BYOK w/ real key, or revisit video/new-nodes if models improve.
+
+## 2026-07-15 (cont) — Launch assets (item 5, Phase 0)
+- Positioning locked: "the design toolbox that lives in your browser" — consolidates the scattered single-purpose sites (generate/edit/cutout/erase/upscale) into one free canvas. NO Lovable origin story.
+- **LAUNCH.md**: positioning + one-liners, Show HN post (+ seed comment), Product Hunt copy, tweet, Reel/TikTok script, channel order. LATAM angle = "gratis, privado, sin cuenta".
+- **README rebuilt**: og-image hero + template-pipeline GIF (docs/nano-template-pipeline.gif) + feature grid + why-different + tech. Images verified reachable on GitHub raw.
+- **App footer**: added GitHub + "sponsor development" links (github.com/sponsors/vortex-303), removed stale "Nodetools.org" credit.
+- Demo GIF: recorded template→pipeline flow via browser gif_creator → docs/. Eraser/parallax "wow" GIFs left for founder-filmed screen recording (Reel script in LAUNCH.md — real recording beats automated).
+- **Monetization plan (from strategy discussion)**: Phase 0 = free, grow via free-tools SEO + Show HN/PH/HF (now ready). Phase 1 = hosted "no-key" credits tier (thin fal proxy on Vercel functions + Mercado Pago/Stripe) — BUILD ONLY when traffic proves demand; BYOK stays free. Phase 2 = plugin marketplace + team features. MIT means revenue must come from hosted services a fork can't replicate.
