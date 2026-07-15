@@ -1,4 +1,4 @@
-import React, { useCallback, useState, createContext, useContext } from 'react';
+import React, { useCallback, useState, useSyncExternalStore } from 'react';
 import {
   ReactFlow,
   useNodesState,
@@ -13,75 +13,14 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { ImageInputNode } from './nodes/ImageInputNode';
-import { PromptNode } from './nodes/PromptNode';
-import { ProcessingNode } from './nodes/ProcessingNode';
-import { EditNode } from './nodes/EditNode';
-import { VariationNode } from './nodes/VariationNode';
-
-import { ImageOutputNode } from './nodes/ImageOutputNode';
-import { DrawNode } from './nodes/DrawNode';
-import { VariantsOutputNode } from './nodes/VariantsOutputNode';
-import { SocialMediaPostNode } from './nodes/SocialMediaPostNode';
-import { ImagePropsNode } from './nodes/ImagePropsNode';
-import { ThreeModelNode } from './nodes/ThreeModelNode';
-import { ContextNode } from './nodes/ContextNode';
-import { EffectsNode } from './nodes/EffectsNode';
-import { CropNode } from './nodes/CropNode';
-import UpscaleNode from './nodes/UpscaleNode';
-import { HtmlFrameNode } from './nodes/HtmlFrameNode';
-import { BatchImageInputNode } from './nodes/BatchImageInputNode';
-import { VectorizeNode } from './nodes/VectorizeNode';
-import { PixelateNode } from './nodes/PixelateNode';
-import HalftoneEffectNode from './nodes/HalftoneEffectNode';
-import PixelArtNode from './nodes/PixelArtNode';
-import { ConvertNode } from './nodes/ConvertNode';
-import { BatchProcessingNode } from './nodes/BatchProcessingNode';
-import { DescribeImageNode } from './nodes/DescribeImageNode';
-import { DepthMapNode } from './nodes/DepthMapNode';
-import { SegmentNode } from './nodes/SegmentNode';
-import { EraseNode } from './nodes/EraseNode';
-import { ParallaxNode } from './nodes/ParallaxNode';
-
 import { NodePalette } from './NodePalette';
 import { WorkflowToolbar } from './WorkflowToolbar';
 import { ConnectionLegend } from './ConnectionLegend';
 import { useNodeData } from '@/hooks/useNodeData';
 import { NodeData } from '@/types/nodeEditor';
 import { NodeDataContext } from '@/contexts/NodeDataContext';
-
-const nodeTypes = {
-  imageInput: ImageInputNode,
-  batchImageInput: BatchImageInputNode,
-  
-  prompt: PromptNode,
-  processing: ProcessingNode,
-  edit: EditNode,
-  variation: VariationNode,
-  
-  imageOutput: ImageOutputNode,
-  draw: DrawNode,
-  variantsOutput: VariantsOutputNode,
-  socialMediaPost: SocialMediaPostNode,
-  imageProps: ImagePropsNode,
-  threeModel: ThreeModelNode,
-  context: ContextNode,
-  effects: EffectsNode,
-  crop: CropNode,
-  htmlFrame: HtmlFrameNode,
-  vectorize: VectorizeNode,
-  upscale: UpscaleNode,
-  pixelate: PixelateNode,
-  halftoneEffect: HalftoneEffectNode,
-  pixelArt: PixelArtNode,
-  convert: ConvertNode,
-  batchProcessing: BatchProcessingNode,
-  describeImage: DescribeImageNode,
-  depthMap: DepthMapNode,
-  segment: SegmentNode,
-  erase: EraseNode,
-  parallax: ParallaxNode,
-};
+import { subscribe, getNodeTypesSnapshot, getPortType, hasNodeType } from '@/plugins/registry';
+import { portsCompatible } from '@/plugins/types';
 
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
@@ -93,6 +32,19 @@ export const NodeEditor = () => {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { nodeData, updateNodeData, getNodeData, getConnectedNodeData, getAllConnectedNodeData, propagateDataChange } = useNodeData();
+  // Registry-driven node types: updates live when plugins are installed/removed
+  const nodeTypes = useSyncExternalStore(subscribe, getNodeTypesSnapshot);
+
+  // Typed-port connection validation. Unknown ports stay permissive so
+  // legacy/untyped nodes keep working.
+  const isValidConnection = useCallback((connection: Connection | Edge) => {
+    const sourceNode = nodes.find((n) => n.id === connection.source);
+    const targetNode = nodes.find((n) => n.id === connection.target);
+    const sourceType = getPortType(sourceNode?.type, connection.sourceHandle, 'outputs');
+    const targetType = getPortType(targetNode?.type, connection.targetHandle, 'inputs');
+    if (!sourceType || !targetType) return true;
+    return portsCompatible(sourceType, targetType);
+  }, [nodes]);
 
   // Function to add a new ImageInput node with an image
   const addImageInputNode = useCallback((imageUrl: string) => {
@@ -216,8 +168,20 @@ export const NodeEditor = () => {
     console.log('- Nodes:', importedNodes.length, importedNodes);
     console.log('- Edges:', importedEdges.length, importedEdges);
     console.log('- Node Data:', Object.keys(importedNodeData).length, importedNodeData);
-    
-    setNodes(importedNodes);
+
+    // Nodes whose type isn't registered (usually an uninstalled plugin) render
+    // as a MissingPluginNode placeholder instead of xyflow's fallback box.
+    const resolvedNodes = importedNodes.map((node) =>
+      node.type && !hasNodeType(node.type)
+        ? { ...node, type: 'missingPlugin', data: { ...node.data, _originalType: node.type } }
+        : node
+    );
+    const missing = resolvedNodes.filter((n) => n.type === 'missingPlugin').length;
+    if (missing > 0) {
+      console.warn(`NodeEditor - ${missing} node(s) use plugins that are not installed`);
+    }
+
+    setNodes(resolvedNodes);
     setEdges(importedEdges);
     
     // Update the node data context with imported data - add small delay to ensure nodes are rendered first
@@ -283,6 +247,7 @@ export const NodeEditor = () => {
                 onNodesDelete={onNodesDelete}
                 onEdgesDelete={onEdgesDelete}
                 nodeTypes={nodeTypes}
+                isValidConnection={isValidConnection}
                 fitView
                 deleteKeyCode={['Delete', 'Backspace']}
                 className="bg-background"

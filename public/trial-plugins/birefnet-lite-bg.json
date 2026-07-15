@@ -1,0 +1,22 @@
+{
+  "format": "nano-node/1",
+  "id": "birefnet-lite-bg",
+  "name": "BiRefNet Background Removal",
+  "version": "1.0.0",
+  "description": "High-quality background removal with BiRefNet-lite (MIT). A community-node alternative to the built-in RMBG/BEN2 effects.",
+  "author": "nano-editor community",
+  "homepage": "https://huggingface.co/onnx-community/BiRefNet_lite-ONNX",
+  "icon": "🪄",
+  "category": "Community",
+  "badge": "Local · Free",
+  "inputs": [{ "id": "image", "type": "image" }],
+  "outputs": [{ "id": "result", "type": "image" }],
+  "params": [],
+  "runtime": {
+    "kind": "transformers-pipeline",
+    "task": "image-segmentation",
+    "model": "onnx-community/BiRefNet_lite-ONNX",
+    "dtype": "fp16"
+  },
+  "modelSizeMB": 109
+}

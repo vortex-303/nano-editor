@@ -21,12 +21,12 @@ export type ProgressCallback = (message: string) => void;
 
 export const hasWebGPU = (): boolean => typeof navigator !== 'undefined' && 'gpu' in navigator;
 
-const device = (): 'webgpu' | 'wasm' => (hasWebGPU() ? 'webgpu' : 'wasm');
+export const device = (): 'webgpu' | 'wasm' => (hasWebGPU() ? 'webgpu' : 'wasm');
 
 // Singleton cache: each model loads once per session, then stays warm
 const pipelineCache = new Map<string, Promise<unknown>>();
 
-const cached = <T>(key: string, factory: () => Promise<T>): Promise<T> => {
+export const cached = <T>(key: string, factory: () => Promise<T>): Promise<T> => {
   if (!pipelineCache.has(key)) {
     const promise = factory().catch((error) => {
       pipelineCache.delete(key);
@@ -72,7 +72,7 @@ export const imageToCanvas = (
   return { canvas, ctx };
 };
 
-const rawImageToCanvas = (raw: RawImage): HTMLCanvasElement => {
+export const rawImageToCanvas = (raw: RawImage): HTMLCanvasElement => {
   const canvas = document.createElement('canvas');
   canvas.width = raw.width;
   canvas.height = raw.height;

@@ -1,0 +1,21 @@
+{
+  "format": "nano-node/1",
+  "id": "fast-caption",
+  "name": "Fast Caption (ViT-GPT2)",
+  "version": "1.0.0",
+  "description": "Lightweight image captioning with ViT-GPT2 — much smaller and faster than the built-in Describe Image node.",
+  "author": "nano-editor community",
+  "homepage": "https://huggingface.co/Xenova/vit-gpt2-image-captioning",
+  "icon": "⚡",
+  "category": "Community",
+  "badge": "Local · Free",
+  "inputs": [{ "id": "image", "type": "image" }],
+  "outputs": [{ "id": "prompt", "type": "text" }],
+  "params": [],
+  "runtime": {
+    "kind": "transformers-pipeline",
+    "task": "image-to-text",
+    "model": "Xenova/vit-gpt2-image-captioning"
+  },
+  "modelSizeMB": 300
+}

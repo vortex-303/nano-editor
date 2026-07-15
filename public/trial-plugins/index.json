@@ -1,0 +1,33 @@
+{
+  "format": "nano-registry/1",
+  "updated": "2026-07-15",
+  "plugins": [
+    {
+      "id": "birefnet-lite-bg",
+      "name": "BiRefNet Background Removal",
+      "description": "High-quality background removal with BiRefNet-lite (MIT).",
+      "icon": "🪄",
+      "category": "Community",
+      "modelSizeMB": 109,
+      "manifestUrl": "/trial-plugins/birefnet-lite-bg.json"
+    },
+    {
+      "id": "fast-caption",
+      "name": "Fast Caption (ViT-GPT2)",
+      "description": "Lightweight image captioning with ViT-GPT2.",
+      "icon": "⚡",
+      "category": "Community",
+      "modelSizeMB": 300,
+      "manifestUrl": "/trial-plugins/fast-caption.json"
+    },
+    {
+      "id": "nsfw-check",
+      "name": "NSFW Checker",
+      "description": "Classifies an image as safe/NSFW locally.",
+      "icon": "🛡️",
+      "category": "Community",
+      "modelSizeMB": 85,
+      "manifestUrl": "/trial-plugins/nsfw-check.json"
+    }
+  ]
+}

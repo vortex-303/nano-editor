@@ -1,10 +1,12 @@
-import { Sparkles, KeyRound } from "lucide-react";
+import { Sparkles, KeyRound, Puzzle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ApiKeysModal } from "./ApiKeysModal";
+import { PluginManagerModal } from "./PluginManagerModal";
 import { useState } from "react";
 
 export const Header = () => {
   const [apiKeysOpen, setApiKeysOpen] = useState(false);
+  const [pluginsOpen, setPluginsOpen] = useState(false);
 
   return (
     <header className="border-b border-border/50 bg-gradient-subtle backdrop-blur-md">
@@ -24,7 +26,11 @@ export const Header = () => {
             </div>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <Button variant="ghost" size="sm" onClick={() => setPluginsOpen(true)}>
+              <Puzzle className="h-4 w-4 mr-2" />
+              Plugins
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => setApiKeysOpen(true)}>
               <KeyRound className="h-4 w-4 mr-2" />
               AI API Keys
@@ -34,6 +40,10 @@ export const Header = () => {
           <ApiKeysModal
             open={apiKeysOpen}
             onOpenChange={setApiKeysOpen}
+          />
+          <PluginManagerModal
+            open={pluginsOpen}
+            onOpenChange={setPluginsOpen}
           />
         </div>
       </div>

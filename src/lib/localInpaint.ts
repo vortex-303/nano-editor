@@ -1,61 +1,16 @@
-import * as ort from 'onnxruntime-web';
 import { loadImageElement } from './localAi';
 import type { ProgressCallback } from './localAi';
+import { getOrtSession, ort } from './ortSession';
 
 // LaMa (Large Mask Inpainting) via onnxruntime-web.
 // The model is fixed at 512x512: we inpaint a downscaled copy and composite the
 // repaired region back into the full-resolution image with a feathered mask.
 const LAMA_URL = 'https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx';
 const MIGAN_URL = 'https://huggingface.co/anyisalin/migan-onnx/resolve/main/onnx/migan_pipeline.onnx';
-const MODEL_CACHE = 'nano-local-models';
 const LAMA_SIZE = 512;
 
-// Single-threaded WASM: avoids needing cross-origin isolation (SharedArrayBuffer)
-ort.env.wasm.numThreads = 1;
-// Vite doesn't serve ort's .wasm/.mjs runtime files (the SPA fallback returns
-// index.html, which fails the wasm magic-word check) — load them from the CDN,
-// pinned to the installed package version.
-ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
-
-const sessionPromises = new Map<string, Promise<ort.InferenceSession>>();
-
-const fetchModelCached = async (url: string, onProgress?: ProgressCallback): Promise<ArrayBuffer> => {
-  try {
-    const cache = await caches.open(MODEL_CACHE);
-    const hit = await cache.match(url);
-    if (hit) {
-      onProgress?.('Loading LaMa model from cache...');
-      return await hit.arrayBuffer();
-    }
-    onProgress?.('Downloading LaMa model (~200MB, one time only)...');
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Model download failed (${response.status})`);
-    await cache.put(url, response.clone());
-    return await response.arrayBuffer();
-  } catch (error) {
-    // Cache API unavailable (e.g. private mode) — plain fetch
-    if (error instanceof Error && error.message.includes('download failed')) throw error;
-    onProgress?.('Downloading LaMa model (~200MB)...');
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Model download failed (${response.status})`);
-    return await response.arrayBuffer();
-  }
-};
-
-const getSession = (url: string, onProgress?: ProgressCallback): Promise<ort.InferenceSession> => {
-  if (!sessionPromises.has(url)) {
-    const promise = (async () => {
-      const buffer = await fetchModelCached(url, onProgress);
-      onProgress?.('Initializing inpainting engine...');
-      return await ort.InferenceSession.create(buffer, { executionProviders: ['wasm'] });
-    })().catch((error) => {
-      sessionPromises.delete(url);
-      throw error;
-    });
-    sessionPromises.set(url, promise);
-  }
-  return sessionPromises.get(url)!;
-};
+const getSession = (url: string, onProgress?: ProgressCallback): Promise<ort.InferenceSession> =>
+  getOrtSession(url, onProgress, url === LAMA_URL ? 'LaMa model (~200MB)' : 'MI-GAN model (~27MB)');
 
 const drawToSize = (source: CanvasImageSource, width: number, height: number): CanvasRenderingContext2D => {
   const canvas = document.createElement('canvas');

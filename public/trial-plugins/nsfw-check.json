@@ -1,0 +1,21 @@
+{
+  "format": "nano-node/1",
+  "id": "nsfw-check",
+  "name": "NSFW Checker",
+  "version": "1.0.0",
+  "description": "Classifies an image as safe/NSFW locally — useful as a gate before posting or publishing.",
+  "author": "nano-editor community",
+  "homepage": "https://huggingface.co/Falconsai/nsfw_image_detection",
+  "icon": "🛡️",
+  "category": "Community",
+  "badge": "Local · Free",
+  "inputs": [{ "id": "image", "type": "image" }],
+  "outputs": [{ "id": "prompt", "type": "text" }],
+  "params": [],
+  "runtime": {
+    "kind": "transformers-pipeline",
+    "task": "image-classification",
+    "model": "Falconsai/nsfw_image_detection"
+  },
+  "modelSizeMB": 85
+}

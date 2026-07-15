@@ -12,6 +12,8 @@ export interface CloudProject {
     nodeData: { [key: string]: NodeData };
   };
   thumbnail?: string;
+  /** Plugin node types used by this project (informational, for install prompts) */
+  requiredPlugins?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -32,6 +34,12 @@ export class ProjectService {
       const processedNodeData = await this.convertBlobUrlsToDataUrls(projectData.nodeData);
 
       const now = new Date().toISOString();
+      const requiredPlugins = [...new Set(
+        projectData.nodes
+          .map((n) => n.type)
+          .filter((t): t is string => !!t && t.startsWith('plugin.'))
+          .map((t) => t.replace(/^plugin\./, ''))
+      )];
       const project: CloudProject = {
         id: newId(),
         name: projectData.name,
@@ -42,6 +50,7 @@ export class ProjectService {
           nodeData: processedNodeData
         },
         thumbnail: projectData.thumbnail,
+        ...(requiredPlugins.length ? { requiredPlugins } : {}),
         createdAt: now,
         updatedAt: now
       };
