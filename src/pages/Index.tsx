@@ -28,20 +28,29 @@ const Index = () => {
               Privacy Policy
             </a>
             <span>•</span>
-            <a 
+            <a
               href="/terms"
               className="hover:text-foreground transition-colors"
             >
               Terms of Service
             </a>
+            <span>•</span>
+            <a
+              href="https://github.com/vortex-303/nano-editor"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground transition-colors"
+            >
+              GitHub
+            </a>
           </div>
-          <a 
-            href="https://nodetools.org/" 
-            target="_blank" 
+          <a
+            href="https://github.com/sponsors/vortex-303"
+            target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-block"
           >
-            Made by Nodetools.org
+            ♥ Free & open source — sponsor development
           </a>
         </div>
       </footer>
