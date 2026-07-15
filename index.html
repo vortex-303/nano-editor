@@ -3,63 +3,75 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nano Editor - AI-Powered Image Generation &amp; Editing</title>
-    <meta name="description" content="Create and edit stunning images with Google&#39;s Nano Banana AI. Transform your ideas into beautiful visuals instantly with our minimalist image editor.">
+    <meta name="theme-color" content="#0a0a0f" />
+
+    <title>Nano Editor — Free Browser-Native AI Image Studio (No Uploads)</title>
+    <meta name="description" content="A node-based AI image studio that runs 100% in your browser. Free local AI — background removal, object eraser, upscaling, depth maps, segmentation — plus bring-your-own-key cloud generation. No account, no uploads, open source." />
     <meta name="author" content="Nano Editor" />
-    
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/lovable-uploads/9aa2a972-8168-49fe-9476-6ecfd753ac01.png">
-    <link rel="apple-touch-icon" href="/lovable-uploads/9aa2a972-8168-49fe-9476-6ecfd753ac01.png">
+    <meta name="keywords" content="browser image editor, AI background removal, object eraser, image upscaler, node-based editor, free photo editor no upload, local AI, WebGPU, open source image tool, Nano Banana, designer tools" />
+    <link rel="canonical" href="https://nano-editor.app/" />
 
-    
-    
+    <!-- Icons -->
+    <link rel="icon" type="image/png" href="/lovable-uploads/9aa2a972-8168-49fe-9476-6ecfd753ac01.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
+    <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/lovable-uploads/9aa2a972-8168-49fe-9476-6ecfd753ac01.png">
+    <meta property="og:site_name" content="Nano Editor" />
+    <meta property="og:url" content="https://nano-editor.app/" />
+    <meta property="og:title" content="Nano Editor — Free Browser-Native AI Image Studio" />
+    <meta property="og:description" content="Node-based AI image workflows in your browser. Free local AI (background removal, object eraser, upscaling, depth, segmentation) + BYOK cloud generation. No account, no uploads, open source." />
+    <meta property="og:image" content="https://nano-editor.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
 
+    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    
-    <meta name="twitter:image" content="/lovable-uploads/9aa2a972-8168-49fe-9476-6ecfd753ac01.png">
-    
-    <!-- ZGate Security -->
-    <script src="https://zgate.dev/static/zgate.js?k=pk_live_9283313314c7f2a01097d15e816c2ef7395247e44c6cb1e1"
-      data-site-key="pk_live_9283313314c7f2a01097d15e816c2ef7395247e44c6cb1e1" data-enforce="true"></script>
-    
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z2YHNH6EJQ"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
+    <meta name="twitter:title" content="Nano Editor — Free Browser-Native AI Image Studio" />
+    <meta name="twitter:description" content="Node-based AI image workflows in your browser. Free local AI + BYOK cloud generation. No account, no uploads, open source." />
+    <meta name="twitter:image" content="https://nano-editor.app/og-image.png" />
 
-      gtag('config', 'G-Z2YHNH6EJQ');
-    </script>
-    
-    <!-- Event snippet for Compra conversion page -->
-    <script>
-    function gtag_report_conversion(url) {
-      var callback = function () {
-        if (typeof(url) != 'undefined') {
-          window.location = url;
-        }
-      };
-      gtag('event', 'conversion', {
-          'send_to': 'AW-949108413/B7F6CLfusfkaEL39yMQD',
-          'value': 1.0,
-          'currency': 'ARS',
-          'transaction_id': '',
-          'event_callback': callback
-      });
-      return false;
+    <!-- Structured data for search + AI crawlers -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Nano Editor",
+      "url": "https://nano-editor.app/",
+      "applicationCategory": "DesignApplication",
+      "operatingSystem": "Any (web browser)",
+      "browserRequirements": "Requires a modern browser; WebGPU recommended for local AI features",
+      "description": "A node-based AI image studio that runs entirely in the browser. Free local AI for background removal, object erasing, upscaling, depth maps and segmentation, plus bring-your-own-key cloud image generation. No account, no uploads, extensible with community plugin nodes.",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "featureList": [
+        "AI background removal (local, free)",
+        "Object eraser (SAM + LaMa/MI-GAN inpainting, local)",
+        "Image upscaling 2x/4x (local or cloud)",
+        "Depth maps and 2.5D parallax video export",
+        "Click-to-cut-out and text-prompted segmentation",
+        "Image captioning and description",
+        "Node-based visual workflow canvas",
+        "Community plugin system",
+        "Bring-your-own-key cloud image generation (fal.ai)"
+      ],
+      "isAccessibleForFree": true,
+      "license": "https://opensource.org/licenses/MIT",
+      "softwareHelp": "https://github.com/vortex-303/nano-editor"
     }
     </script>
-    <meta property="og:title" content="Nano Editor - AI-Powered Image Generation &amp; Editing">
-  <meta name="twitter:title" content="Nano Editor - AI-Powered Image Generation &amp; Editing">
-  <meta property="og:description" content="Create and edit stunning images with Google&#39;s Nano Banana AI. Transform your ideas into beautiful visuals instantly with our minimalist image editor.">
-  <meta name="twitter:description" content="Create and edit stunning images with Google&#39;s Nano Banana AI. Transform your ideas into beautiful visuals instantly with our minimalist image editor.">
-</head>
+
+    <meta property="og:image:alt" content="Nano Editor — node-based browser image studio" />
+  </head>
 
   <body>
     <div id="root"></div>
+    <noscript>
+      <div style="max-width:640px;margin:80px auto;padding:0 24px;font-family:system-ui,sans-serif;color:#e5e7eb;background:#0a0a0f;">
+        <h1>Nano Editor</h1>
+        <p>Nano Editor is a free, open-source, node-based AI image studio that runs entirely in your browser — background removal, object erasing, upscaling, depth maps, segmentation and more, with no account and no uploads. It requires JavaScript to run.</p>
+        <p><a href="https://github.com/vortex-303/nano-editor" style="color:#fbbf24;">Source code on GitHub</a></p>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
