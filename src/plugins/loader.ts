@@ -1,10 +1,11 @@
-import { createStore } from 'idb-keyval';
-import { putRecord, getRecord, deleteRecord, listRecords } from '@/lib/localDb';
+import { putRecord, getRecord, deleteRecord, listRecords, pluginStore } from '@/lib/localDb';
 import { pluginManifestSchema, pluginNodeType, type InstalledPlugin, type PluginManifest, type PortSpec } from './types';
 import { registerNode, unregisterNode } from './registry';
 import { createPluginNodeComponent } from './PluginNode';
 
-export const pluginStore = createStore('nano-studio-plugins', 'keyval');
+export { pluginStore };
+
+const MAX_SCRIPT_BYTES = 200_000;
 
 /** Registry index location — points at the trial set until the public registry repo exists. */
 export const REGISTRY_INDEX_URL = '/trial-plugins/index.json';
@@ -28,10 +29,20 @@ export const parseManifest = (raw: unknown): PluginManifest => {
     const issue = result.error.issues[0];
     throw new Error(`Invalid plugin manifest: ${issue.path.join('.')} — ${issue.message}`);
   }
-  if (result.data.runtime.kind === 'script') {
-    throw new Error('Scripted plugins (tier 2) are not enabled yet');
-  }
   return result.data;
+};
+
+/** Fetch and validate a tier-2 script at install time (stored, never re-fetched). */
+const fetchScriptSource = async (manifest: PluginManifest): Promise<string> => {
+  const runtime = manifest.runtime;
+  if (runtime.kind !== 'script') throw new Error('Not a scripted plugin');
+  if (!runtime.sourceUrl) throw new Error('Scripted plugin manifest is missing runtime.sourceUrl');
+  const response = await fetch(runtime.sourceUrl);
+  if (!response.ok) throw new Error(`Could not fetch plugin script (${response.status})`);
+  const source = await response.text();
+  if (source.length > MAX_SCRIPT_BYTES) throw new Error(`Plugin script too large (max ${MAX_SCRIPT_BYTES / 1000}KB)`);
+  if (!source.includes('nanoNode')) throw new Error('Plugin script must define self.nanoNode.process');
+  return source;
 };
 
 export const listInstalledPlugins = (): Promise<InstalledPlugin[]> =>
@@ -41,8 +52,10 @@ export const installPlugin = async (
   manifest: PluginManifest,
   origin: InstalledPlugin['origin']
 ): Promise<InstalledPlugin> => {
+  const source = manifest.runtime.kind === 'script' ? await fetchScriptSource(manifest) : undefined;
   const plugin: InstalledPlugin = {
     manifest,
+    ...(source ? { source } : {}),
     origin,
     installedAt: new Date().toISOString(),
     enabled: true,

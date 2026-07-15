@@ -1,0 +1,20 @@
+{
+  "format": "nano-node/1",
+  "id": "duotone",
+  "name": "Duotone",
+  "version": "1.0.0",
+  "description": "Classic two-color gradient-map effect (Spotify-poster style). Example of a scripted community node — pure JS in a sandbox, zero network access.",
+  "author": "nano-editor community",
+  "homepage": "https://github.com/vortex-303/nano-editor/blob/main/public/trial-plugins/duotone.js",
+  "icon": "🎨",
+  "category": "Community",
+  "badge": "Script · Free",
+  "inputs": [{ "id": "image", "type": "image" }],
+  "outputs": [{ "id": "result", "type": "image" }],
+  "params": [
+    { "kind": "text", "key": "shadow", "label": "Shadow color (hex)", "placeholder": "#101840", "default": "#101840" },
+    { "kind": "text", "key": "highlight", "label": "Highlight color (hex)", "placeholder": "#ffd65c", "default": "#ffd65c" }
+  ],
+  "runtime": { "kind": "script", "sourceUrl": "/trial-plugins/duotone.js" },
+  "permissions": { "net": [] }
+}

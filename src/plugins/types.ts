@@ -144,8 +144,11 @@ const onnxRuntimeSchema = z.object({
 
 const scriptRuntimeSchema = z.object({
   kind: z.literal('script'),
-  /** Plugin JS source URL (tier 2, sandboxed). Fetched at install, stored locally. */
-  sourceUrl: z.string().url().optional(),
+  /** Plugin JS source URL (tier 2, sandboxed). Fetched at install, stored locally. Absolute https or site-relative path. */
+  sourceUrl: z.string().refine(
+    (u) => u.startsWith('/') || /^https:\/\/.+/.test(u),
+    'Must be an https:// URL or a site-relative /path'
+  ).optional(),
 });
 
 export const pluginManifestSchema = z.object({

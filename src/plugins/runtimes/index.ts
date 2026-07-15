@@ -1,5 +1,6 @@
-import type { PluginManifest } from '../types';
+import type { InstalledPlugin, PluginManifest } from '../types';
 import type { ProgressCallback } from '@/lib/localAi';
+import { getRecord, pluginStore } from '@/lib/localDb';
 import { runTransformersPipeline, type RuntimeInputs, type RuntimeOutput } from './transformersRuntime';
 import { runFalEndpoint } from './falRuntime';
 import { runOnnxModel } from './onnxRuntime';
@@ -20,8 +21,12 @@ export const executePlugin = async (
       return runFalEndpoint(manifest, runtime, inputs, params, onProgress);
     case 'onnx':
       return runOnnxModel(manifest, runtime, inputs, params, onProgress);
-    case 'script':
-      throw new Error('Scripted plugins (tier 2) are not enabled yet');
+    case 'script': {
+      const installed = await getRecord<InstalledPlugin>(pluginStore, manifest.id);
+      if (!installed?.source) throw new Error('Plugin script not found — reinstall the plugin');
+      const { runInSandbox } = await import('../sandbox/host');
+      return runInSandbox(manifest, installed.source, inputs, params, onProgress);
+    }
     default:
       throw new Error('Unknown plugin runtime');
   }

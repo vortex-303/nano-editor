@@ -28,6 +28,22 @@
       "category": "Community",
       "modelSizeMB": 85,
       "manifestUrl": "/trial-plugins/nsfw-check.json"
+    },
+    {
+      "id": "duotone",
+      "name": "Duotone",
+      "description": "Two-color gradient-map effect. Example scripted node (sandboxed JS).",
+      "icon": "🎨",
+      "category": "Community",
+      "manifestUrl": "/trial-plugins/duotone.json"
+    },
+    {
+      "id": "ascii-art",
+      "name": "ASCII Art",
+      "description": "Image → ASCII text. Example scripted node (sandboxed JS).",
+      "icon": "🔤",
+      "category": "Community",
+      "manifestUrl": "/trial-plugins/ascii-art.json"
     }
   ]
 }

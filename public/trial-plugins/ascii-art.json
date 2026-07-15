@@ -1,0 +1,19 @@
+{
+  "format": "nano-node/1",
+  "id": "ascii-art",
+  "name": "ASCII Art",
+  "version": "1.0.0",
+  "description": "Turns an image into ASCII art text. Example of a scripted community node with an image→text output.",
+  "author": "nano-editor community",
+  "homepage": "https://github.com/vortex-303/nano-editor/blob/main/public/trial-plugins/ascii-art.js",
+  "icon": "🔤",
+  "category": "Community",
+  "badge": "Script · Free",
+  "inputs": [{ "id": "image", "type": "image" }],
+  "outputs": [{ "id": "prompt", "type": "text" }],
+  "params": [
+    { "kind": "slider", "key": "width", "label": "Width (characters)", "min": 40, "max": 160, "step": 10, "default": 80 }
+  ],
+  "runtime": { "kind": "script", "sourceUrl": "/trial-plugins/ascii-art.js" },
+  "permissions": { "net": [] }
+}

@@ -3,6 +3,7 @@ import { createStore, get, set, del, entries, type UseStore } from 'idb-keyval';
 export const projectStore = createStore('nano-studio-projects', 'keyval');
 export const workflowStore = createStore('nano-studio-workflows', 'keyval');
 export const snippetStore = createStore('nano-studio-snippets', 'keyval');
+export const pluginStore = createStore('nano-studio-plugins', 'keyval');
 
 export const putRecord = <T>(store: UseStore, id: string, value: T): Promise<void> =>
   set(id, value, store);
