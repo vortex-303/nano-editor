@@ -20,6 +20,9 @@ import { ConnectionLegend } from './ConnectionLegend';
 import { useNodeData } from '@/hooks/useNodeData';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { getToolPreset } from '@/lib/toolPresets';
+import { TemplatesModal } from './TemplatesModal';
+import { TemplateStarter } from './TemplateStarter';
+import type { WorkflowTemplate } from '@/lib/templates';
 import { toast } from 'sonner';
 import { NodeData } from '@/types/nodeEditor';
 import { NodeDataContext } from '@/contexts/NodeDataContext';
@@ -35,6 +38,7 @@ export const NodeEditor = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const { nodeData, updateNodeData, setAllNodeData, getNodeData, getConnectedNodeData, getAllConnectedNodeData, propagateDataChange } = useNodeData();
   // Registry-driven node types: updates live when plugins are installed/removed
   const nodeTypes = useSyncExternalStore(subscribe, getNodeTypesSnapshot);
@@ -215,6 +219,20 @@ export const NodeEditor = () => {
     takeSnapshot();
   }, [takeSnapshot]);
 
+  // Apply a workflow template (replaces the canvas; undoable)
+  const applyTemplate = useCallback((t: WorkflowTemplate) => {
+    if (stateRef.current.nodes.length > 0) takeSnapshot();
+    const { nodes: tNodes, edges: tEdges } = t.build();
+    setNodes(tNodes);
+    setEdges(tEdges);
+    // Seed node-data context from each node's preset data (mirrors project import)
+    setTimeout(() => {
+      tNodes.forEach((n) => updateNodeData(n.id, { ...(n.data as NodeData) }));
+      rfInstance.current?.fitView({ padding: 0.25, duration: 400 });
+    }, 100);
+    toast.info(`Loaded "${t.name}" — add your image and run.`);
+  }, [setNodes, setEdges, updateNodeData, takeSnapshot]);
+
   const handleImport = useCallback((importedNodes: Node[], importedEdges: Edge[], importedNodeData: { [key: string]: NodeData }) => {
     console.log('NodeEditor - Importing project:');
     console.log('- Nodes:', importedNodes.length, importedNodes);
@@ -334,12 +352,13 @@ export const NodeEditor = () => {
       addImageInputNode
     }}>
       <div className={`${isFullscreen ? 'fixed inset-0 z-50 bg-background' : 'h-[800px]'} w-full bg-card rounded-lg border overflow-hidden`}>
-        <WorkflowToolbar 
+        <WorkflowToolbar
           onClear={clearWorkflow}
           nodes={nodes}
           edges={edges}
           nodeData={nodeData}
           onImport={handleImport}
+          onOpenTemplates={() => setTemplatesOpen(true)}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
         />
@@ -380,10 +399,17 @@ export const NodeEditor = () => {
                 <MiniMap />
                 <ConnectionLegend />
               </ReactFlow>
+              {nodes.length === 0 && (
+                <TemplateStarter
+                  onSelect={applyTemplate}
+                  onBrowseAll={() => setTemplatesOpen(true)}
+                />
+              )}
             </div>
           </div>
         </div>
       </div>
+      <TemplatesModal open={templatesOpen} onOpenChange={setTemplatesOpen} onSelect={applyTemplate} />
     </NodeDataContext.Provider>
   );
 };

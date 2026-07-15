@@ -10,7 +10,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Maximize2, Minimize2, HardDrive, Trash2, GitBranch, FolderOpen } from 'lucide-react';
+import { MoreHorizontal, Maximize2, Minimize2, HardDrive, Trash2, GitBranch, FolderOpen, LayoutTemplate } from 'lucide-react';
 import { Node, Edge } from '@xyflow/react';
 import { NodeData } from '@/types/nodeEditor';
 import { useProjectExport } from '@/hooks/useProjectExport';
@@ -28,6 +28,7 @@ interface WorkflowToolbarProps {
   edges: Edge[];
   nodeData: { [key: string]: NodeData };
   onImport: (nodes: Node[], edges: Edge[], nodeData: { [key: string]: NodeData }) => void;
+  onOpenTemplates?: () => void;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
 }
@@ -38,6 +39,7 @@ export const WorkflowToolbar: React.FC<WorkflowToolbarProps> = ({
   edges,
   nodeData,
   onImport,
+  onOpenTemplates,
   isFullscreen = false,
   onToggleFullscreen
 }) => {
@@ -127,6 +129,11 @@ export const WorkflowToolbar: React.FC<WorkflowToolbarProps> = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuItem onClick={() => onOpenTemplates?.()}>
+              <LayoutTemplate size={16} className="mr-2" />
+              Templates
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <FolderOpen size={16} className="mr-2" />
