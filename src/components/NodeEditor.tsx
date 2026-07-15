@@ -19,6 +19,8 @@ import { WorkflowToolbar } from './WorkflowToolbar';
 import { ConnectionLegend } from './ConnectionLegend';
 import { useNodeData } from '@/hooks/useNodeData';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
+import { getToolPreset } from '@/lib/toolPresets';
+import { toast } from 'sonner';
 import { NodeData } from '@/types/nodeEditor';
 import { NodeDataContext } from '@/contexts/NodeDataContext';
 import { subscribe, getNodeTypesSnapshot, getPortType, hasNodeType } from '@/plugins/registry';
@@ -249,6 +251,26 @@ export const NodeEditor = () => {
 
   const onNodesDelete = useCallback((nodesToDelete: Node[]) => {
     setSelectedNode(null);
+  }, []);
+
+  // Deep-link from a /tools/* landing page: ?tool=<id> preloads a starter graph
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tool = params.get('tool');
+    if (!tool) return;
+    const preset = getToolPreset(tool);
+    // Only preload into an empty canvas so we never clobber existing work
+    if (preset && stateRef.current.nodes.length === 0) {
+      setNodes(preset.nodes);
+      setEdges(preset.edges);
+      setTimeout(() => {
+        rfInstance.current?.fitView({ padding: 0.3, duration: 400 });
+        toast.info('Add your image to the Image Input node, then run.');
+      }, 200);
+    }
+    // Clean the URL so reloads/saves don't retrigger
+    window.history.replaceState({}, '', window.location.pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Keyboard shortcuts

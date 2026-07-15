@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0a0a0f" />
+<title>Free AI Image Upscaler — 2x / 4x, No Upload | Nano Editor</title>
+<meta name="description" content="Upscale and enhance images 2x or 4x for free with AI, directly in your browser. No account, no upload, no watermark. Runs on WebGPU with a fast local model." />
+<meta name="keywords" content="image upscaler, AI upscale free, enhance image, 4x upscale, super resolution browser" />
+<link rel="canonical" href="https://nano-editor.app/tools/upscale-image" />
+<link rel="icon" type="image/png" href="/lovable-uploads/9aa2a972-8168-49fe-9476-6ecfd753ac01.png" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://nano-editor.app/tools/upscale-image" />
+<meta property="og:title" content="Free AI Image Upscaler — 2x / 4x, No Upload | Nano Editor" />
+<meta property="og:description" content="Upscale and enhance images 2x or 4x for free with AI, directly in your browser. No account, no upload, no watermark. Runs on WebGPU with a fast local model." />
+<meta property="og:image" content="https://nano-editor.app/og-image.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Free AI Image Upscaler — 2x / 4x, No Upload | Nano Editor" />
+<meta name="twitter:description" content="Upscale and enhance images 2x or 4x for free with AI, directly in your browser. No account, no upload, no watermark. Runs on WebGPU with a fast local model." />
+<meta name="twitter:image" content="https://nano-editor.app/og-image.png" />
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Free Image Upscaler — Nano Editor","applicationCategory":"DesignApplication","operatingSystem":"Any (web browser)","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"isAccessibleForFree":true,"url":"https://nano-editor.app/tools/upscale-image"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How big can I upscale?","acceptedAnswer":{"@type":"Answer","text":"Choose 2x or 4x. The free local engine runs on your GPU via WebGPU; a cloud engine is also available with your own key."}},{"@type":"Question","name":"Are my images uploaded?","acceptedAnswer":{"@type":"Answer","text":"No. The local upscaler runs on your device — nothing is sent to a server."}},{"@type":"Question","name":"Is it free?","acceptedAnswer":{"@type":"Answer","text":"The local 2x/4x upscaler is completely free with no watermark."}}]}</script>
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:#0a0a0f;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.6}
+a{color:#fbbf24;text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:780px;margin:0 auto;padding:0 24px}
+header{padding:24px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:#fff}
+.brand span{color:#fbbf24;font-size:22px}
+h1{font-size:clamp(32px,6vw,52px);line-height:1.1;margin:48px 0 12px;color:#fff}
+.tagline{font-size:20px;color:#c4b5fd;margin:0 0 28px}
+.cta{display:inline-block;background:#fbbf24;color:#0a0a0f;font-weight:700;padding:14px 28px;border-radius:12px;font-size:17px;margin:8px 0 8px}
+.cta:hover{text-decoration:none;filter:brightness(1.05)}
+.muted{color:#9ca3af;font-size:14px}
+h2{font-size:26px;margin:44px 0 16px;color:#fff}
+ol,ul{padding-left:22px}
+li{margin:8px 0}
+.chips{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
+.chip{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);color:#fde68a;padding:6px 14px;border-radius:999px;font-size:14px}
+.faq{border-top:1px solid rgba(255,255,255,.08);padding:18px 0}
+.faq h3{margin:0 0 6px;font-size:17px;color:#fff}
+.faq p{margin:0;color:#c9ccd3}
+footer{border-top:1px solid rgba(255,255,255,.08);margin-top:56px;padding:28px 0 60px;color:#9ca3af;font-size:14px}
+footer a{margin-right:14px}
+.tools-links{margin:12px 0}
+</style>
+</head>
+<body>
+<header><div class="wrap"><a class="brand" href="/"><span>&#10022;</span> Nano Editor</a></div></header>
+<main class="wrap">
+<h1>Free Image Upscaler</h1>
+<p class="tagline">Enlarge and sharpen images with AI — free, and without uploading a thing.</p>
+<a class="cta" href="/?tool=upscale-image">Open the tool &rarr;</a>
+<div class="muted">Free &middot; No account &middot; No upload &middot; Open source</div>
+
+<div class="chips">
+<span class="chip">100% in your browser</span>
+<span class="chip">Private &mdash; no upload</span>
+<span class="chip">No watermark</span>
+<span class="chip">Free &amp; open source</span>
+</div>
+
+<h2>How it works</h2>
+<ol><li>Add the image you want to enlarge.</li><li>Pick 2x or 4x and run the Upscale node. A local super-resolution model (Swin2SR) reconstructs detail.</li><li>Download the higher-resolution result.</li></ol>
+
+<h2>Why Nano Editor</h2>
+<ul>
+<li><strong>Private by design.</strong> The AI runs on your device with WebGPU &mdash; your images never leave your computer.</li>
+<li><strong>Actually free.</strong> No account, no subscription, no watermark, no per-image cost.</li>
+<li><strong>Part of a full studio.</strong> This tool is one node in a visual, node-based image editor &mdash; chain it with background removal, upscaling, generation and more.</li>
+<li><strong>Open source.</strong> <a href="https://github.com/vortex-303/nano-editor">MIT-licensed on GitHub</a>.</li>
+</ul>
+
+<a class="cta" href="/?tool=upscale-image">Open the tool &rarr;</a>
+
+<h2>FAQ</h2>
+<div class="faq"><h3>How big can I upscale?</h3><p>Choose 2x or 4x. The free local engine runs on your GPU via WebGPU; a cloud engine is also available with your own key.</p></div><div class="faq"><h3>Are my images uploaded?</h3><p>No. The local upscaler runs on your device — nothing is sent to a server.</p></div><div class="faq"><h3>Is it free?</h3><p>The local 2x/4x upscaler is completely free with no watermark.</p></div>
+</main>
+<footer class="wrap">
+<div class="tools-links"><strong style="color:#e5e7eb">More free tools:</strong><br>
+<a href="/tools/remove-background">Free Background Remover</a> <a href="/tools/object-eraser">Remove Objects from Photos</a> <a href="/tools/depth-parallax">Turn a Photo into a 2.5D Parallax Video</a> <a href="/tools/describe-image">AI Image Describer &amp; Captioner</a>
+</div>
+<div><a href="/">Open editor</a> <a href="https://github.com/vortex-303/nano-editor">GitHub</a> <a href="/privacy">Privacy</a></div>
+</footer>
+</body>
+</html>
