@@ -8,7 +8,7 @@
       "description": "High-quality background removal with BiRefNet-lite (MIT).",
       "icon": "🪄",
       "category": "Community",
-      "modelSizeMB": 109,
+      "modelSizeMB": 220,
       "manifestUrl": "/trial-plugins/birefnet-lite-bg.json"
     },
     {

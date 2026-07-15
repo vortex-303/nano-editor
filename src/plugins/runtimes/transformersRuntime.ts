@@ -17,6 +17,14 @@ export type RuntimeOutput = { kind: 'image'; value: string } | { kind: 'text'; v
  * Uses the same singleton cache as built-in local AI, so a plugin model
  * downloads once and stays warm like any built-in.
  */
+const loadPipeline = (runtime: TransformersRuntime, dev: 'webgpu' | 'wasm') =>
+  cached(`plugin:${runtime.task}:${runtime.model}:${dev}`, () =>
+    pipeline(runtime.task as Parameters<typeof pipeline>[0], runtime.model, {
+      device: dev,
+      ...(runtime.dtype ? { dtype: runtime.dtype as never } : {}),
+    })
+  );
+
 export const runTransformersPipeline = async (
   manifest: PluginManifest,
   runtime: TransformersRuntime,
@@ -24,23 +32,35 @@ export const runTransformersPipeline = async (
   params: Record<string, unknown>,
   onProgress?: ProgressCallback
 ): Promise<RuntimeOutput> => {
-  onProgress?.(`Loading ${manifest.name} model${manifest.modelSizeMB ? ` (~${manifest.modelSizeMB}MB, one time)` : ''}...`);
-  const pipe = await cached(`plugin:${runtime.task}:${runtime.model}`, () =>
-    pipeline(runtime.task as Parameters<typeof pipeline>[0], runtime.model, {
-      device: device(),
-      ...(runtime.dtype ? { dtype: runtime.dtype as never } : {}),
-    })
-  );
-
   if (!inputs.image) throw new Error('Connect an image input');
   onProgress?.('Preparing image...');
   const image = await loadImageElement(inputs.image);
   const { canvas } = imageToCanvas(image);
   const dataUrl = canvas.toDataURL('image/png');
 
+  onProgress?.(`Loading ${manifest.name} model${manifest.modelSizeMB ? ` (~${manifest.modelSizeMB}MB, one time)` : ''}...`);
+  let pipe = await loadPipeline(runtime, device());
+
+  // Community models can exceed per-GPU WebGPU limits (e.g. storage buffers per
+  // shader stage). Retry once on the WASM backend before giving up.
+  const runWithFallback = async (invoke: (p: unknown) => Promise<unknown>): Promise<unknown> => {
+    try {
+      return await invoke(pipe);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (device() === 'webgpu' && /webgpu|OrtRun|storage buffers|shader/i.test(message)) {
+        console.warn(`Plugin ${manifest.id}: WebGPU failed, retrying on WASM...`, message);
+        onProgress?.('GPU incompatible with this model — retrying on CPU (slower)...');
+        pipe = await loadPipeline(runtime, 'wasm');
+        return await invoke(pipe);
+      }
+      throw error;
+    }
+  };
+
   onProgress?.('Running model...');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const run = pipe as any;
+  const run = (...args: any[]) => runWithFallback((p) => (p as any)(...args));
 
   switch (runtime.task) {
     case 'background-removal': {

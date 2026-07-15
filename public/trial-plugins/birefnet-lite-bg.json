@@ -9,14 +9,24 @@
   "icon": "🪄",
   "category": "Community",
   "badge": "Local · Free",
-  "inputs": [{ "id": "image", "type": "image" }],
-  "outputs": [{ "id": "result", "type": "image" }],
+  "inputs": [
+    {
+      "id": "image",
+      "type": "image"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "result",
+      "type": "image"
+    }
+  ],
   "params": [],
   "runtime": {
     "kind": "transformers-pipeline",
     "task": "image-segmentation",
     "model": "onnx-community/BiRefNet_lite-ONNX",
-    "dtype": "fp16"
+    "dtype": "fp32"
   },
-  "modelSizeMB": 109
+  "modelSizeMB": 220
 }
