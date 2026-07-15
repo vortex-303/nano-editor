@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Eraser, Download, RotateCcw, Search } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { NodeData } from '@/types/nodeEditor';
 import { useNodeDataContext } from '@/contexts/NodeDataContext';
 import { segmentWithPoints, detectObjects, type SamPoint } from '@/lib/localAi';
@@ -20,6 +21,7 @@ interface EraseNodeProps {
 export const EraseNode: React.FC<EraseNodeProps> = ({ data, id }) => {
   const [points, setPoints] = useState<SamPoint[]>([]);
   const [findQuery, setFindQuery] = useState('');
+  const [engine, setEngine] = useState<'fast' | 'quality'>('fast');
   const [result, setResult] = useState<string>((data.result as string) || '');
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState('');
@@ -56,8 +58,10 @@ export const EraseNode: React.FC<EraseNodeProps> = ({ data, id }) => {
     try {
       const { mask } = await segmentWithPoints(imageUrl, pointsToUse, setProgress);
       // onnxruntime-web is heavy — load it only when erasing is actually used
-      const { eraseWithLama } = await import('@/lib/localInpaint');
-      const erased = await eraseWithLama(imageUrl, mask, setProgress);
+      const { eraseWithLama, eraseWithMiGan } = await import('@/lib/localInpaint');
+      const erased = engine === 'fast'
+        ? await eraseWithMiGan(imageUrl, mask, setProgress)
+        : await eraseWithLama(imageUrl, mask, setProgress);
       setResult(erased);
       toast.success('Object erased');
     } catch (error) {
@@ -143,11 +147,23 @@ export const EraseNode: React.FC<EraseNodeProps> = ({ data, id }) => {
             <p className="text-[10px] text-muted-foreground">
               {result
                 ? 'Erased — click Reset to remove something else'
-                : 'Click the object to erase (shift-click to exclude), or find it by text. SAM + LaMa, fully local. First use downloads ~200MB.'}
+                : 'Click the object to erase (shift-click to exclude), or find it by text. SAM + inpainting, fully local.'}
             </p>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">Connect an image, then click or describe the object you want to remove.</p>
+        )}
+
+        {imageUrl && !result && (
+          <Select value={engine} onValueChange={(v) => setEngine(v as 'fast' | 'quality')}>
+            <SelectTrigger className="h-7 text-xs nodrag">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="fast">Fast — MI-GAN (~27MB)</SelectItem>
+              <SelectItem value="quality">Quality — LaMa (~200MB)</SelectItem>
+            </SelectContent>
+          </Select>
         )}
 
         {imageUrl && !result && (

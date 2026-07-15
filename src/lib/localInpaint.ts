@@ -6,6 +6,7 @@ import type { ProgressCallback } from './localAi';
 // The model is fixed at 512x512: we inpaint a downscaled copy and composite the
 // repaired region back into the full-resolution image with a feathered mask.
 const LAMA_URL = 'https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx';
+const MIGAN_URL = 'https://huggingface.co/anyisalin/migan-onnx/resolve/main/onnx/migan_pipeline.onnx';
 const MODEL_CACHE = 'nano-local-models';
 const LAMA_SIZE = 512;
 
@@ -16,7 +17,7 @@ ort.env.wasm.numThreads = 1;
 // pinned to the installed package version.
 ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
 
-let sessionPromise: Promise<ort.InferenceSession> | null = null;
+const sessionPromises = new Map<string, Promise<ort.InferenceSession>>();
 
 const fetchModelCached = async (url: string, onProgress?: ProgressCallback): Promise<ArrayBuffer> => {
   try {
@@ -41,18 +42,19 @@ const fetchModelCached = async (url: string, onProgress?: ProgressCallback): Pro
   }
 };
 
-const getSession = (onProgress?: ProgressCallback): Promise<ort.InferenceSession> => {
-  if (!sessionPromise) {
-    sessionPromise = (async () => {
-      const buffer = await fetchModelCached(LAMA_URL, onProgress);
+const getSession = (url: string, onProgress?: ProgressCallback): Promise<ort.InferenceSession> => {
+  if (!sessionPromises.has(url)) {
+    const promise = (async () => {
+      const buffer = await fetchModelCached(url, onProgress);
       onProgress?.('Initializing inpainting engine...');
       return await ort.InferenceSession.create(buffer, { executionProviders: ['wasm'] });
     })().catch((error) => {
-      sessionPromise = null;
+      sessionPromises.delete(url);
       throw error;
     });
+    sessionPromises.set(url, promise);
   }
-  return sessionPromise;
+  return sessionPromises.get(url)!;
 };
 
 const drawToSize = (source: CanvasImageSource, width: number, height: number): CanvasRenderingContext2D => {
@@ -107,7 +109,7 @@ export const eraseWithLama = async (
   onProgress?: ProgressCallback
 ): Promise<string> => {
   const [image, maskImage] = await Promise.all([loadImageElement(imageSrc), loadImageElement(maskSrc)]);
-  const session = await getSession(onProgress);
+  const session = await getSession(LAMA_URL, onProgress);
 
   onProgress?.('Preparing image...');
   const imgCtx = drawToSize(image, LAMA_SIZE, LAMA_SIZE);
@@ -153,18 +155,24 @@ export const eraseWithLama = async (
   outCtx.putImageData(outImage, 0, 0);
 
   onProgress?.('Compositing result...');
-  // Composite: keep the original full-res image, paste the inpainted region
-  // (scaled back up) only where the feathered mask is active.
+  return compositePatch(image, outCanvas, feathered);
+};
+
+/**
+ * Keep the original full-res image; paste the inpainted 512px patch (scaled
+ * back up) only where the feathered mask is active.
+ */
+const compositePatch = (image: HTMLImageElement, patchCanvas: HTMLCanvasElement, feathered: ImageData): string => {
   const width = image.naturalWidth;
   const height = image.naturalHeight;
 
-  const patchCtx = drawToSize(outCanvas, width, height);
+  const patchCtx = drawToSize(patchCanvas, width, height);
   const patch = patchCtx.getImageData(0, 0, width, height);
 
   // Scale the feathered mask up to full resolution
   const featherCanvas = document.createElement('canvas');
-  featherCanvas.width = LAMA_SIZE;
-  featherCanvas.height = LAMA_SIZE;
+  featherCanvas.width = feathered.width;
+  featherCanvas.height = feathered.height;
   featherCanvas.getContext('2d')!.putImageData(feathered, 0, 0);
   const featherFullCtx = drawToSize(featherCanvas, width, height);
   const featherFull = featherFullCtx.getImageData(0, 0, width, height);
@@ -182,4 +190,59 @@ export const eraseWithLama = async (
   finalCtx.putImageData(final, 0, 0);
 
   return finalCtx.canvas.toDataURL('image/png', 1.0);
+};
+
+/**
+ * Fast object erase using MI-GAN (~27MB vs LaMa's ~200MB).
+ * MI-GAN's pipeline model takes uint8 tensors and a mask where 255 = keep
+ * and 0 = hole (inverse of LaMa), and returns the composited uint8 image.
+ */
+export const eraseWithMiGan = async (
+  imageSrc: string,
+  maskSrc: string,
+  onProgress?: ProgressCallback
+): Promise<string> => {
+  const [image, maskImage] = await Promise.all([loadImageElement(imageSrc), loadImageElement(maskSrc)]);
+  const session = await getSession(MIGAN_URL, onProgress);
+
+  onProgress?.('Preparing image...');
+  const imgCtx = drawToSize(image, LAMA_SIZE, LAMA_SIZE);
+  const imgData = imgCtx.getImageData(0, 0, LAMA_SIZE, LAMA_SIZE);
+  const { binary, feathered } = prepareMask(maskImage, LAMA_SIZE, LAMA_SIZE, 6);
+  const maskData = binary.getContext('2d')!.getImageData(0, 0, LAMA_SIZE, LAMA_SIZE);
+
+  const n = LAMA_SIZE * LAMA_SIZE;
+  const imageTensor = new Uint8Array(3 * n);
+  const maskTensor = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    imageTensor[i] = imgData.data[i * 4];
+    imageTensor[n + i] = imgData.data[i * 4 + 1];
+    imageTensor[2 * n + i] = imgData.data[i * 4 + 2];
+    // Our mask is white-on-black (white = remove); MI-GAN wants 0 in the hole
+    maskTensor[i] = maskData.data[i * 4] > 127 ? 0 : 255;
+  }
+
+  onProgress?.('Erasing (MI-GAN fast inpainting)...');
+  const feeds: Record<string, ort.Tensor> = {
+    [session.inputNames[0]]: new ort.Tensor('uint8', imageTensor, [1, 3, LAMA_SIZE, LAMA_SIZE]),
+    [session.inputNames[1]]: new ort.Tensor('uint8', maskTensor, [1, 1, LAMA_SIZE, LAMA_SIZE]),
+  };
+  const results = await session.run(feeds);
+  const out = results[session.outputNames[0]].data as Uint8Array;
+
+  const outCanvas = document.createElement('canvas');
+  outCanvas.width = LAMA_SIZE;
+  outCanvas.height = LAMA_SIZE;
+  const outCtx = outCanvas.getContext('2d')!;
+  const outImage = outCtx.createImageData(LAMA_SIZE, LAMA_SIZE);
+  for (let i = 0; i < n; i++) {
+    outImage.data[i * 4] = out[i];
+    outImage.data[i * 4 + 1] = out[n + i];
+    outImage.data[i * 4 + 2] = out[2 * n + i];
+    outImage.data[i * 4 + 3] = 255;
+  }
+  outCtx.putImageData(outImage, 0, 0);
+
+  onProgress?.('Compositing result...');
+  return compositePatch(image, outCanvas, feathered);
 };

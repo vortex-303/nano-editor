@@ -138,6 +138,31 @@ export const removeBackground = async (imageSrc: string, onProgress?: ProgressCa
   return applyMaskToCanvas(canvas, result[0].mask);
 };
 
+// --- HQ background removal (BEN2 — SOTA-tier matting, MIT license) ---
+
+const getBen2 = () =>
+  cached('ben2', () =>
+    pipeline('background-removal', 'onnx-community/BEN2-ONNX', {
+      device: device(),
+      dtype: 'fp16',
+    })
+  );
+
+export const removeBackgroundHQ = async (imageSrc: string, onProgress?: ProgressCallback): Promise<string> => {
+  onProgress?.('Loading BEN2 model (first run downloads ~200MB)...');
+  const remover = await getBen2() as (input: string) => Promise<RawImage | RawImage[]>;
+
+  onProgress?.('Processing image...');
+  const image = await loadImageElement(imageSrc);
+  const { canvas } = imageToCanvas(image);
+
+  onProgress?.('Removing background (HQ)...');
+  const result = await remover(canvas.toDataURL('image/png'));
+  const raw = (Array.isArray(result) ? result[0] : result) as RawImage;
+  if (!raw) throw new Error('BEN2 returned no result');
+  return rawImageToCanvas(raw).toDataURL('image/png', 1.0);
+};
+
 // --- Super resolution (Swin2SR, 2x and 4x) ---
 
 export type LocalUpscaleFactor = 2 | 4;

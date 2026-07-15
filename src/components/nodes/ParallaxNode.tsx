@@ -10,6 +10,7 @@ import { Loader2, Clapperboard, Download } from 'lucide-react';
 import { NodeData } from '@/types/nodeEditor';
 import { useNodeDataContext } from '@/contexts/NodeDataContext';
 import { estimateDepth, loadImageElement } from '@/lib/localAi';
+import { exportCanvasAnimation, webCodecsAvailable, type ExportFormat } from '@/lib/canvasExport';
 import { toast } from 'sonner';
 
 interface ParallaxNodeProps {
@@ -40,30 +41,20 @@ void main() {
 }`;
 
 const LOOP_SECONDS = 4;
+const EXPORT_FPS = 30;
 
-type VideoFormat = 'webm' | 'mp4';
-
-const FORMAT_MIME_CANDIDATES: Record<VideoFormat, string[]> = {
-  mp4: ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4'],
-  webm: ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'],
-};
-
-const supportedMime = (format: VideoFormat): string | null =>
-  typeof MediaRecorder !== 'undefined'
-    ? FORMAT_MIME_CANDIDATES[format].find((m) => MediaRecorder.isTypeSupported(m)) ?? null
-    : null;
-
-const MP4_SUPPORTED = !!supportedMime('mp4');
+const VIDEO_SUPPORTED = webCodecsAvailable();
 
 export const ParallaxNode: React.FC<ParallaxNodeProps> = ({ data, id }) => {
   const [amplitude, setAmplitude] = useState([0.04]);
-  const [format, setFormat] = useState<VideoFormat>(MP4_SUPPORTED ? 'mp4' : 'webm');
+  const [format, setFormat] = useState<ExportFormat>(VIDEO_SUPPORTED ? 'mp4' : 'gif');
   const [depthUrl, setDepthUrl] = useState<string>('');
   const [preparing, setPreparing] = useState(false);
   const [recording, setRecording] = useState(false);
   const [progress, setProgress] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glStateRef = useRef<{ gl: WebGLRenderingContext; offsetLoc: WebGLUniformLocation | null; ampLoc: WebGLUniformLocation | null } | null>(null);
+  const renderFnRef = useRef<((tSec: number) => void) | null>(null);
   const rafRef = useRef<number>(0);
   const ampRef = useRef(0.04);
   const { getConnectedNodeData, updateNodeData } = useNodeDataContext();
@@ -151,13 +142,20 @@ export const ParallaxNode: React.FC<ParallaxNodeProps> = ({ data, id }) => {
       ampLoc: gl.getUniformLocation(program, 'uAmp'),
     };
 
-    const animate = (time: number) => {
+    // Deterministic frame renderer — shared by the live preview and exports
+    const renderAtTime = (tSec: number) => {
       const state = glStateRef.current;
       if (!state) return;
-      const t = (time / 1000 / LOOP_SECONDS) * Math.PI * 2;
+      const t = (tSec / LOOP_SECONDS) * Math.PI * 2;
       state.gl.uniform2f(state.offsetLoc, Math.cos(t), Math.sin(t) * 0.5);
       state.gl.uniform1f(state.ampLoc, ampRef.current);
       state.gl.drawArrays(state.gl.TRIANGLE_STRIP, 0, 4);
+    };
+    renderFnRef.current = renderAtTime;
+
+    const animate = (time: number) => {
+      if (!glStateRef.current) return;
+      renderAtTime((time / 1000) % LOOP_SECONDS);
       rafRef.current = requestAnimationFrame(animate);
     };
     rafRef.current = requestAnimationFrame(animate);
@@ -188,39 +186,45 @@ export const ParallaxNode: React.FC<ParallaxNodeProps> = ({ data, id }) => {
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const canvas = canvasRef.current;
-    if (!canvas || !glStateRef.current) {
+    const renderFrame = renderFnRef.current;
+    if (!canvas || !renderFrame) {
       toast.error('Start the preview first');
       return;
     }
     setRecording(true);
+    // Pause the live preview so export frames render deterministically
+    cancelAnimationFrame(rafRef.current);
     try {
-      const stream = canvas.captureStream(30);
-      const mimeType = supportedMime(format) ?? supportedMime('webm');
-      if (!mimeType) throw new Error('Video recording is not supported in this browser');
-      const extension = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm';
-      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: mimeType.split(';')[0] });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `parallax-${Date.now()}.${extension}`;
-        link.click();
-        URL.revokeObjectURL(url);
-        setRecording(false);
-        toast.success(`Parallax video exported (${extension.toUpperCase()})`);
-      };
-      recorder.start();
-      setTimeout(() => recorder.stop(), LOOP_SECONDS * 1000);
-      toast.info(`Recording ${LOOP_SECONDS}s loop...`);
+      const blob = await exportCanvasAnimation({
+        canvas,
+        renderFrame,
+        durationSec: LOOP_SECONDS,
+        fps: format === 'gif' ? 15 : EXPORT_FPS,
+        format,
+        onProgress: setProgress,
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `parallax-${Date.now()}.${format}`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Parallax exported (${format.toUpperCase()}, frame-exact)`);
     } catch (error) {
       console.error('Export failed:', error);
       toast.error(error instanceof Error ? error.message : 'Export failed');
+    } finally {
       setRecording(false);
+      setProgress('');
+      // Resume the live preview
+      const animate = (time: number) => {
+        if (!glStateRef.current || !renderFnRef.current) return;
+        renderFnRef.current((time / 1000) % LOOP_SECONDS);
+        rafRef.current = requestAnimationFrame(animate);
+      };
+      rafRef.current = requestAnimationFrame(animate);
     }
   };
 
@@ -268,15 +272,18 @@ export const ParallaxNode: React.FC<ParallaxNodeProps> = ({ data, id }) => {
 
         <div className="space-y-1">
           <Label className="text-xs">Export format</Label>
-          <Select value={format} onValueChange={(v) => setFormat(v as VideoFormat)}>
+          <Select value={format} onValueChange={(v) => setFormat(v as ExportFormat)}>
             <SelectTrigger className="h-7 text-xs nodrag">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="mp4" disabled={!MP4_SUPPORTED}>
-                MP4 (H.264){!MP4_SUPPORTED ? ' — not supported in this browser' : ''}
+              <SelectItem value="mp4" disabled={!VIDEO_SUPPORTED}>
+                MP4 (H.264){!VIDEO_SUPPORTED ? ' — needs WebCodecs' : ''}
               </SelectItem>
-              <SelectItem value="webm">WebM (VP9)</SelectItem>
+              <SelectItem value="webm" disabled={!VIDEO_SUPPORTED}>
+                WebM (VP9){!VIDEO_SUPPORTED ? ' — needs WebCodecs' : ''}
+              </SelectItem>
+              <SelectItem value="gif">GIF (animated, 480p)</SelectItem>
             </SelectContent>
           </Select>
         </div>

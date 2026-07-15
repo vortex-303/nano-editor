@@ -9,7 +9,7 @@ import { Loader2, Wand2, Download } from 'lucide-react';
 import { NodeData } from '@/types/nodeEditor';
 import { toast } from 'sonner';
 import { useNodeDataContext } from '@/contexts/NodeDataContext';
-import { removeBackground, superResolution2x } from '@/lib/localAi';
+import { removeBackground, removeBackgroundHQ, superResolution2x } from '@/lib/localAi';
 import { ImagePreviewModal } from '../ImagePreviewModal';
 
 interface EffectsNodeProps {
@@ -17,9 +17,10 @@ interface EffectsNodeProps {
   id: string;
 }
 
-type EffectType = 
+type EffectType =
   | 'grayscale' | 'invert'
   | 'removeBackground'
+  | 'removeBackgroundHQ'
   | 'edgeDetection'
   | 'superResolution'
   | 'pixelation' | 'mosaic'
@@ -28,7 +29,8 @@ type EffectType =
 
 const effectOptions = [
   // AI Background Removal - moved to top
-  { value: 'removeBackground', label: 'Remove Background', description: 'AI background removal with RMBG V1.4', category: 'AI Background' },
+  { value: 'removeBackground', label: 'Remove Background (Fast)', description: 'AI background removal with RMBG V1.4 (~44MB)', category: 'AI Background' },
+  { value: 'removeBackgroundHQ', label: 'Remove Background (HQ)', description: 'SOTA hair-level matting with BEN2 (~200MB)', category: 'AI Background' },
   
   // Basic Effects
   { value: 'grayscale', label: 'Grayscale', description: 'Convert to grayscale', category: 'Basic' },
@@ -466,6 +468,10 @@ export const EffectsNode: React.FC<EffectsNodeProps> = ({ data, id }) => {
         case 'removeBackground':
           resultUrl = await removeBackground(imageUrl, setProgress);
           toast.success('Background removed with RMBG V1.4!');
+          break;
+        case 'removeBackgroundHQ':
+          resultUrl = await removeBackgroundHQ(imageUrl, setProgress);
+          toast.success('Background removed with BEN2 (HQ)!');
           break;
         case 'edgeDetection':
           setProgress('Applying edge detection...');
