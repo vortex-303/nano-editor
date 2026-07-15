@@ -64,3 +64,14 @@ Loose ends: live-test fal BYOK flows with real key; reinstall+run BiRefNet fp32 
 - **Routing gotcha fixed**: `cleanUrls:true` broke SPA fallback (extensionless routes 404). Final `vercel.json`: `/tools/:name → :name.html` rewrite + `/(.*) → /index.html` catch-all, NO cleanUrls. All SPA routes + all tool pages verified 200 in prod.
 - **New local-AI nodes bucket = DEFERRED (honest)**: DDColor colorization has no accessible browser ONNX (Xenova/onnx-community repos are empty stubs); NAFNet deblur ONNX exists (87MB) but its SCA/Pad ops fail in onnxruntime-web (`{1,64,0,0}` shape collapse) — validated my onnx runtime works, model is incompatible; GFPGAN is TFLite-only + needs face detect/align/paste. These need real per-model porting (re-export fixed shapes / custom pipelines), not quick adds.
 - **REMAINING**: Video AI pillar (task 24) — large distinct effort (WebCodecs decode→process→encode + mediabunny mux, MediaPipe/RVM matting, per-frame upscale). Warrants user confirmation of scope before big investment.
+
+## 2026-07-15 (cont) — Workflow templates
+- **15 pre-wired templates** (`src/lib/templates.ts`): 10 fully-local/free + 5 BYOK. Each build() returns a connected {nodes,edges} graph with correct handle ids; presets node params via node.data (e.g. Effects selectedEffect='removeBackgroundHQ', Upscale upscaleEngine='local', prompt text). Verified: applying "Cutout + Upscale" loaded ImageInput→Effects→Upscale→ImageOutput with edges + presets rendered.
+- **UI**: TemplatesModal (gallery, grouped local/BYOK) + TemplateStarter (empty-canvas overlay, 6 featured) + Menu→Templates. applyTemplate in NodeEditor (snapshots for undo, seeds nodeData, fitView). Verified live on nano-editor.app (starter shows after SW update).
+- Note: `.react-flow__edge-path` DOM selector reads 0 in automation but edges render correctly (visual + preset data confirmed) — automation quirk, not a bug.
+- PWA autoUpdate: post-deploy first load serves cached bundle, next load = new. Expected.
+
+## Roadmap status (2026-07-15 end)
+DONE: refactor, batch4, plugin framework (A+B), OSS(item1), PWA+SEO+landing pages, analytics, designer credibility (undo/redo, shortcuts, Models manager), 15 workflow templates.
+DEFERRED: new-AI-nodes bucket (no browser-runnable colorize/deblur/restore models), Video AI pillar (user deferred), Milestone C (public registry + ComfyUI import — user skipped).
+NEXT candidates: item 5 (monetization/launch strategy), live-test fal BYOK w/ real key, or revisit video/new-nodes if models improve.
