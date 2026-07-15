@@ -44,3 +44,15 @@ Node-based AI image workflow editor, fully client-side (no backend). De-Lovabled
 2. Live-test fal flows with real key + local nodes end-to-end.
 3. Batch 4 SHIPPED 2026-07-14: BEN2 HQ bg-removal (Effects node), MI-GAN 27MB fast-erase engine (EraseNode default; LaMa=quality), frame-exact MP4/WebM/GIF export via mediabunny+gifenc (ParallaxNode; MediaRecorder removed). MI-GAN mask convention (255=keep) needs live-test verification. DDColor/NAFNet skipped — no hosted ONNX found.
 4. Remaining candidates (from 2026-07-14 research, see memory/agent report): BEN2 bg removal (MIT, 209MB), SPAN fast 2x upscaler (~20MB), Mediabunny+WebCodecs frame-exact export + gifenc GIF for Parallax, MI-GAN 30MB fast-erase mode, DDColor colorization, NAFNet deblur, FastVLM-0.5B captioner, worker+OffscreenCanvas inference refactor, Transformers.js ModelRegistry "manage models" panel.
+
+## 2026-07-15 — Open-source + Milestone B + PWA/SEO
+- **Open-sourced**: github.com/vortex-303/nano-editor (MIT). LICENSE, PLUGINS.md, README rewritten. Vercel git-connected → auto-deploy on push to main (verified working).
+- **Milestone B (tier-2 sandboxed plugins) DONE**: `src/plugins/sandbox/host.ts` — opaque-origin iframe + Worker, CSP net-allowlist (deny by default), hard timeout. Verified: duotone runs & returns image; undeclared fetch BLOCKED. Examples: duotone.js/json, ascii-art.js/json in public/trial-plugins.
+- **PWA**: vite-plugin-pwa (autoUpdate), installable + offline app-shell; icons in public/icons; models deliberately excluded from Workbox precache (handled by our own Cache API).
+- **SEO for all crawlers**: rewrote index.html (title/desc/OG/Twitter/JSON-LD WebApplication + noscript), og-image.png (1200x630, PIL-generated), robots.txt (explicitly allows GPTBot/ClaudeBot/PerplexityBot/Google-Extended/etc.), sitemap.xml, **llms.txt** (designer hooks + "when to recommend"). Removed legacy Lovable tracking (GA G-Z2YHNH6EJQ, ZGate, ARS Ads conversion) — now consistent with privacy-first Privacy page.
+- **Analytics gap**: intentionally none. If launch traffic visibility wanted, add cookieless Vercel Analytics (privacy-safe, keeps Privacy page accurate).
+
+## Roadmap position
+Done: refactor, batch4, plugin framework A, item1 (OSS), Milestone B, item4 (PWA/SEO).
+NEXT per user: (a) DISCUSS workflows before Milestone C, (b) DISCUSS feature list. Then Milestone C (public registry repo + CI + ComfyUI workflow importer), then item 4 designer features (undo/redo, shortcuts, template gallery), then item 5 monetization/launch.
+Loose ends: live-test fal BYOK flows with real key; reinstall+run BiRefNet fp32 on nano-editor.app to confirm GPU fix.
