@@ -1,6 +1,29 @@
 # Nano Editor — STATUS
 
-Updated: 2026-07-14 (batch 4 shipped)
+Updated: 2026-07-20
+
+## ▶ RESUME HERE (read this first)
+
+**Project**: `/Users/n/nano-art-studio (1)` — open source at github.com/vortex-303/nano-editor (MIT), live at **nano-editor.app**.
+**Deploy**: git push to `main` auto-deploys via Vercel (verified). Local dev: `npm run dev` → localhost:8080. Build: `npm run build` (static, no env vars).
+**PWA note**: after a deploy, the FIRST load serves the cached bundle, NEXT load has the update (autoUpdate SW) — normal, not a bug.
+
+**State**: Everything through "launch assets" is DONE, committed, pushed, and verified live. The product + launch kit are ready to go.
+
+**Full history**: below in this file (reverse-chronological-ish by date). Short version of what's shipped:
+de-Lovable refactor → fal.ai BYOK + local Transformers.js/ONNX AI → batch 4 (BEN2, MI-GAN, video/GIF export) → plugin framework (tier-1 manifests + tier-2 sandbox) → open-sourced → PWA + full SEO + 5 tool landing pages → Vercel Analytics → designer credibility (undo/redo, shortcuts, Models manager) → 15 workflow templates → launch assets (README + LAUNCH.md + demo GIF + Sponsor links).
+
+**NEXT — pick up here (all are user-gated decisions, nothing half-built):**
+1. **SEO guide pages** (`/guides/*`) — PENDING USER GO. Proposed set in the last message: how-to-remove-background, remove-object, upscale-to-4k, photo-to-parallax, run-AI-models-in-browser. Would be static HTML like the tool pages + HowTo/Article JSON-LD, cross-linked to tool pages. Highest-leverage remaining SEO work.
+2. **Launch** (user's move): post Show HN (Tue–Thu US AM) + Product Hunt using `LAUNCH.md`; film eraser/parallax Reel (script in LAUNCH.md).
+3. **Phase 1 monetization** — hosted "no-key" credits proxy (Vercel fns + Mercado Pago/Stripe). BUILD ONLY when traffic proves demand. BYOK stays free.
+4. **Loose ends**: live-test fal BYOK flows with a real key (never done — needs user's fal key); on nano-editor.app reinstall+run BiRefNet plugin to confirm the fp32/WASM GPU fix.
+
+**DEFERRED (do not re-attempt without reason)**: Video AI pillar (user deferred); new-AI-nodes bucket = colorize/deblur/face-restore (NO browser-runnable models: DDColor ONNX repos empty, NAFNet fails in onnxruntime-web, GFPGAN TFLite-only); Milestone C public registry + ComfyUI importer (user skipped workflows); template gallery interpreted as covered by templates (shipped).
+
+**Plan file**: `~/.claude/plans/eager-moseying-corbato.md`.
+
+---
 
 ## What this is
 Node-based AI image workflow editor, fully client-side (no backend). De-Lovabled 2026-07-13 from the original Lovable project (still live separately at nano-art-studio.lovable.app — untouched).
